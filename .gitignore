@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+dist/
+build/
+*.whl
+venv/
+.venv/
+env/
+
+# Node
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.sw?
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project-specific
+backend/uploads/
+*.log
