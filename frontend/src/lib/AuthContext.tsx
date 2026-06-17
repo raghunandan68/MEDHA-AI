@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, useCallback } from "react";
-import { api, setToken, clearToken, getToken } from "./api";
+import { createContext, useContext, useState, useCallback, useEffect } from "react";
+import { api, setToken, clearToken, getToken, isTokenExpired, setOnUnauthorized } from "./api";
 
 interface User {
   id: string;
@@ -19,11 +19,35 @@ interface AuthState {
 const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(() => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const clearSession = useCallback(() => {
+    clearToken();
+    localStorage.removeItem("medha_user");
+    setUser(null);
+  }, []);
+
+  useEffect(() => {
+    const token = getToken();
     const stored = localStorage.getItem("medha_user");
-    return stored ? JSON.parse(stored) : null;
-  });
-  const [loading, setLoading] = useState(false);
+    if (token && stored && !isTokenExpired(token)) {
+      setToken(token);
+      try {
+        setUser(JSON.parse(stored));
+      } catch {
+        clearSession();
+      }
+    }
+    setLoading(false);
+  }, [clearSession]);
+
+  useEffect(() => {
+    setOnUnauthorized(() => {
+      clearSession();
+      window.location.href = "/login";
+    });
+  }, [clearSession]);
 
   const login = useCallback(async (email: string, password: string): Promise<string | null> => {
     setLoading(true);
@@ -71,10 +95,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
-    clearToken();
-    localStorage.removeItem("medha_user");
-    setUser(null);
-  }, []);
+    clearSession();
+  }, [clearSession]);
 
   return (
     <AuthContext.Provider value={{ user, loading, login, register, logout }}>

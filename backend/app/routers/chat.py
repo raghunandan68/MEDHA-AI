@@ -93,6 +93,19 @@ async def send_message(body: ChatSendIn, authorization: str = Header("")):
             filename = doc["file_path"].split("/")[-1]
             file_path = str(UPLOAD_DIR / filename)
             context = extract_text(file_path)
+    else:
+        doc_resp = supabase.table("documents").select("*").eq("user_id", user_id).order("created_at", desc=True).limit(3).execute()
+        if doc_resp.data:
+            max_total = 4000
+            per_doc = max_total // len(doc_resp.data)
+            context_parts = []
+            for doc in doc_resp.data:
+                filename = doc["file_path"].split("/")[-1]
+                file_path = str(UPLOAD_DIR / filename)
+                doc_text = extract_text(file_path)
+                if doc_text:
+                    context_parts.append(f"--- Document: {doc['filename']} ---\n{doc_text[:per_doc]}")
+            context = "\n\n".join(context_parts)
 
     ai_response = generate_chat_response(body.message, context=context)
 

@@ -17,6 +17,11 @@ interface Conversation {
   updated_at: string;
 }
 
+interface DocumentInfo {
+  id: string;
+  filename: string;
+}
+
 export default function Chat() {
   const navigate = useNavigate();
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -28,23 +33,28 @@ export default function Chat() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [uploadedDocId, setUploadedDocId] = useState<string | null>(null);
+  const [userDocs, setUserDocs] = useState<DocumentInfo[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const fetchConversations = async () => {
+    const fetchData = async () => {
       try {
-        const res = await api.get<{ conversations: Conversation[] }>("/api/chat/conversations");
-        setConversations(res.conversations);
-        if (res.conversations.length > 0) {
-          setActiveId(res.conversations[0].id);
+        const [convRes, docsRes] = await Promise.all([
+          api.get<{ conversations: Conversation[] }>("/api/chat/conversations"),
+          api.get<{ documents: DocumentInfo[] }>("/api/documents"),
+        ]);
+        setConversations(convRes.conversations);
+        setUserDocs(docsRes.documents);
+        if (convRes.conversations.length > 0) {
+          setActiveId(convRes.conversations[0].id);
         }
       } catch {
-        // no conversations yet
+        // no data yet
       }
       setInitialLoading(false);
     };
-    fetchConversations();
+    fetchData();
   }, []);
 
   useEffect(() => {
@@ -98,6 +108,7 @@ export default function Chat() {
     setUploading(true);
     try {
       const doc = await api.upload<{ id: string; filename: string }>("/api/documents/upload", file);
+      setUserDocs((prev) => [...prev, { id: doc.id, filename: doc.filename }]);
       setUploadedDocId(doc.id);
       const msg = `📄 Uploaded: ${doc.filename}`;
       setInput(msg);
@@ -228,9 +239,32 @@ export default function Chat() {
 
       <div className="flex flex-1 flex-col min-w-0">
         <div className="flex-1 overflow-y-auto space-y-4 rounded-2xl border border-white/[0.04] bg-slate-900/40 backdrop-blur-sm p-4">
+          {userDocs.length > 0 && (
+            <div className="flex items-center gap-2 pb-2 border-b border-white/[0.04] mb-2">
+              <span className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Context:</span>
+              {userDocs.map((d) => (
+                <span key={d.id} className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-2.5 py-0.5 text-[11px] text-indigo-300">
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  {d.filename.length > 20 ? d.filename.slice(0, 20) + "\u2026" : d.filename}
+                </span>
+              ))}
+            </div>
+          )}
           {messages.length === 0 && !initialLoading && (
-            <div className="flex items-center justify-center h-full text-slate-500 text-sm">
-              {activeId ? "No messages yet. Start a conversation!" : "Create a new chat to get started."}
+            <div className="flex flex-col items-center justify-center h-full text-slate-500 text-sm">
+              {!activeId ? (
+                <>
+                  <svg className="h-10 w-10 mb-3 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+                  </svg>
+                  <p>Upload a PDF to get started</p>
+                  <p className="text-xs text-slate-600 mt-1">I'll answer questions based only on your documents</p>
+                </>
+              ) : (
+                <p>No messages yet. Ask a question about your document!</p>
+              )}
             </div>
           )}
           {messages.map((msg, i) => (
@@ -263,17 +297,29 @@ export default function Chat() {
           {uploadedDocId && (
             <div className="flex justify-start animate-fade-in-up">
               <div className="glass-card rounded-2xl px-4 py-3 border border-violet-500/20">
-                <p className="text-sm text-slate-300">
-                  📄 Document uploaded!{" "}
-                  <span
-                    onClick={() => navigate(`/flashcards/${uploadedDocId}`)}
-                    className="text-violet-400 hover:text-violet-300 underline cursor-pointer"
-                  >
-                    View Flashcards
-                  </span>
-                  {" \u2014 "}
-                  or type "summarize this" to auto-generate.
+                <p className="text-sm text-slate-300 mb-3">
+                  📄 Document uploaded successfully!
                 </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => navigate(`/flashcards/${uploadedDocId}`)}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-violet-500/20 border border-violet-500/30 px-3 py-1.5 text-xs font-semibold text-violet-300 hover:bg-violet-500/30 transition-all"
+                  >
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                    Generate Flashcards
+                  </button>
+                  <button
+                    onClick={() => navigate(`/quiz/${uploadedDocId}`)}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/20 border border-emerald-500/30 px-3 py-1.5 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/30 transition-all"
+                  >
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Take Quiz
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -303,7 +349,7 @@ export default function Chat() {
                   handleSendWithUpload();
                 }
               }}
-              placeholder="Ask anything... Upload a PDF and type 'summarize this'"
+              placeholder={userDocs.length > 0 ? "Ask a question about your document..." : "Upload a PDF to start asking questions about it"}
               rows={1}
               className="block w-full resize-none rounded-2xl bg-transparent px-12 py-3 text-white placeholder:text-slate-500 outline-none text-sm"
             />

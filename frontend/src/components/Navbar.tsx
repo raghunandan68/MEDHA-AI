@@ -11,6 +11,7 @@ export default function Navbar({ user }: NavbarProps) {
   const location = useLocation();
   const { logout } = useAuth();
   const isHome = location.pathname === "/";
+  const isAuthPage = location.pathname === "/login" || location.pathname === "/register" || location.pathname === "/auth/callback";
 
   const handleLogout = async () => {
     await logout();
@@ -24,7 +25,7 @@ export default function Navbar({ user }: NavbarProps) {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-14 items-center justify-between">
           <div className="flex items-center gap-6">
-            <Link to={user ? "/dashboard" : "/"} className="flex items-center gap-2.5 group">
+            <Link to={!isHome && !isAuthPage && user ? "/dashboard" : "/"} className="flex items-center gap-2.5 group">
               <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 text-white text-sm font-bold shadow-lg shadow-indigo-500/20 transition-transform duration-200 group-hover:scale-105">
                 M
               </div>
@@ -32,7 +33,7 @@ export default function Navbar({ user }: NavbarProps) {
                 Medha AI
               </span>
             </Link>
-            {user && (
+            {user && !isHome && !isAuthPage && (
               <div className="hidden items-center gap-0.5 md:flex">
                 <NavLink to="/dashboard" label="Dashboard" />
                 <NavLink to="/chat" label="Chat" />
@@ -43,7 +44,7 @@ export default function Navbar({ user }: NavbarProps) {
           </div>
 
           <div className="flex items-center gap-3">
-            {user && !isHome ? (
+            {user && !isHome && !isAuthPage ? (
               <>
                 <span className="hidden sm:block text-sm text-slate-400">
                   {user.name || user.email}
@@ -74,7 +75,7 @@ export default function Navbar({ user }: NavbarProps) {
           </div>
         </div>
 
-        {user && (
+        {user && !isHome && !isAuthPage && (
           <div className="flex gap-1 border-t border-white/5 py-1.5 md:hidden overflow-x-auto">
             <MobileNavLink to="/dashboard" label="Dashboard" />
             <MobileNavLink to="/chat" label="Chat" />

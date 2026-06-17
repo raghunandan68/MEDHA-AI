@@ -4,6 +4,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import AuthCallback from "./pages/AuthCallback";
 import Dashboard from "./pages/Dashboard";
 import Flashcards from "./pages/Flashcards";
 import Quiz from "./pages/Quiz";
@@ -11,6 +12,7 @@ import Chat from "./pages/Chat";
 import Analytics from "./pages/Analytics";
 import History from "./pages/History";
 import Settings from "./pages/Settings";
+import AttemptReview from "./pages/AttemptReview";
 
 export default function App() {
   return (
@@ -19,6 +21,7 @@ export default function App() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
 
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard" element={<Dashboard />} />
@@ -28,6 +31,7 @@ export default function App() {
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/history" element={<History />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/quiz/review/:attemptId" element={<AttemptReview />} />
         </Route>
       </Route>
     </Routes>

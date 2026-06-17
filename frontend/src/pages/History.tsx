@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useOutletContext } from "react-router-dom";
+import { useOutletContext, Link } from "react-router-dom";
 import { api } from "../lib/api";
 import type { User, QuizAttempt } from "../types";
 
@@ -71,7 +71,7 @@ export default function History() {
             <table className="min-w-full">
               <thead>
                 <tr className="border-b border-white/[0.04]">
-                  {["Date", "Document", "Score", "Percentage", "Grade"].map((h) => (
+                  {["Date", "Document", "Score", "Percentage", "Grade", ""].map((h) => (
                     <th key={h} className="px-5 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500">{h}</th>
                   ))}
                 </tr>
@@ -99,6 +99,30 @@ export default function History() {
                         <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-bold ${gradeColor} bg-white/5`}>
                           {grade}
                         </span>
+                      </td>
+                      <td className="whitespace-nowrap px-5 py-3">
+                        <div className="flex items-center gap-2">
+                          <Link
+                            to={`/quiz/review/${attempt.id}`}
+                            className="inline-flex items-center gap-1 rounded-md bg-white/5 px-2.5 py-1 text-xs font-medium text-slate-400 hover:text-violet-300 hover:bg-violet-500/10 transition-all"
+                          >
+                            View
+                          </Link>
+                          <button
+                            onClick={async () => {
+                              if (!confirm("Delete this quiz attempt?")) return;
+                              try {
+                                await api.delete(`/api/quizzes/attempts/${attempt.id}`);
+                                setAttempts((prev) => prev.filter((a) => a.id !== attempt.id));
+                              } catch {
+                                // ignore
+                              }
+                            }}
+                            className="inline-flex items-center gap-1 rounded-md bg-white/5 px-2.5 py-1 text-xs font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

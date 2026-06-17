@@ -24,8 +24,8 @@ def _adaptive_count(text: str) -> int:
     if length < 2000:
         return 5
     if length < 5000:
-        return 8
-    return min(15, 8 + math.floor((length - 5000) / 1500))
+        return 10
+    return min(50, 10 + math.floor((length - 5000) / 300))
 
 
 @router.get("/document/{doc_id}", response_model=FlashcardList)

@@ -1,23 +1,37 @@
-import { useState, useEffect } from "react";
-import { useNavigate, Link, useOutletContext } from "react-router-dom";
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext";
-import type { User } from "../types";
+import { supabase } from "../lib/supabase";
 
 export default function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
-  const { user } = useOutletContext<{ user: User | null }>();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      navigate("/dashboard", { replace: true });
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    setError("");
+    try {
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: "github",
+        options: {
+          redirectTo: window.location.origin + "/auth/callback",
+        },
+      });
+      if (oauthError) {
+        setError(oauthError.message);
+        setGoogleLoading(false);
+      }
+    } catch {
+      setError("Failed to sign in with Google");
+      setGoogleLoading(false);
     }
-  }, [user, navigate]);
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,6 +39,7 @@ export default function Login() {
     setError("");
     const err = await login(email, password);
     if (err) { setError(err); setLoading(false); return; }
+    navigate("/dashboard", { replace: true });
   };
 
   return (
@@ -124,6 +139,33 @@ export default function Login() {
               {loading ? "Logging in..." : "Login"}
             </button>
           </form>
+
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-white/10" />
+            </div>
+            <div className="relative flex justify-center text-xs">
+              <span className="bg-medha-card px-3 text-slate-500">or continue with</span>
+            </div>
+          </div>
+
+          <button
+            onClick={handleGoogleSignIn}
+            disabled={googleLoading}
+            className="w-full flex items-center justify-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-medium text-slate-300 transition-all duration-200 hover:bg-white/[0.06] hover:border-indigo-500/30 disabled:opacity-50"
+          >
+            {googleLoading ? (
+              <svg className="h-5 w-5 animate-spin text-violet-400" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            ) : (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+              </svg>
+            )}
+            {googleLoading ? "Connecting..." : "Continue with GitHub"}
+          </button>
 
           <p className="mt-6 text-center text-xs text-slate-500">
             New here?{" "}

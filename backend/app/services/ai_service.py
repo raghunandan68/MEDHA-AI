@@ -5,7 +5,7 @@ from typing import Any
 from app.config import settings
 
 
-def _call_llm(prompt: str, response_format: dict | None = None) -> str | None:
+def _call_llm(prompt: str, response_format: dict | None = None, system: str | None = None) -> str | None:
     groq_key = settings.groq_api_key
     openai_key = settings.openai_api_key
 
@@ -23,7 +23,11 @@ def _call_llm(prompt: str, response_format: dict | None = None) -> str | None:
     try:
         from openai import OpenAI
         client = OpenAI(api_key=api_key, base_url=base_url)
-        kwargs: dict[str, Any] = {"model": model, "messages": [{"role": "user", "content": prompt}]}
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+        kwargs: dict[str, Any] = {"model": model, "messages": messages}
         if response_format:
             kwargs["response_format"] = {"type": "json_object"}
         resp = client.chat.completions.create(**kwargs)
@@ -33,15 +37,35 @@ def _call_llm(prompt: str, response_format: dict | None = None) -> str | None:
 
 
 def generate_flashcards(text: str, count: int = 5) -> list[dict]:
-    max_chars = min(5000, max(2000, count * 500))
-    prompt = (
-        f"Based on the following text, generate {count} flashcards for studying. "
-        "Each flashcard should have 'front' (the question/concept), 'back' (the answer/definition), "
-        "and 'topic' (a short category label). "
-        "Make the flashcards cover different aspects of the content."
-        f"Return a JSON object with a 'flashcards' array.\n\nText:\n{text[:max_chars]}"
+    if not _has_real_content(text):
+        return _mock_flashcards(text, count)
+
+    total_chars = max(5000, count * 3000)
+    text_section = _sample_text(text, total_chars)
+
+    system = (
+        "You are a document analysis expert. Your task is to create flashcards that serve as a "
+        "complete recap of the provided text. The flashcards must collectively cover ALL key concepts, "
+        "ideas, definitions, and important details in the text. "
+        "Each flashcard's 'back' must be self-contained and detailed enough that the user understands "
+        "the concept fully without referring back to the original document. "
+        "Do not skip any important concept. The set of flashcards should be a comprehensive study guide."
     )
-    result = _call_llm(prompt, {"type": "json_object"})
+    prompt = (
+        f"Generate EXACTLY {count} flashcards that serve as a complete recap of the text below. "
+        "STRICT RULES:\n"
+        "1. Collectively, the flashcards MUST cover ALL key concepts and ideas from the entire text.\n"
+        "2. Each 'front' should be a clear question or concept name.\n"
+        "3. Each 'back' must be a detailed, self-contained explanation so the user understands "
+        "the concept fully WITHOUT needing the original document.\n"
+        "4. Assign a 'topic' (short category label like 'Introduction', 'Core Concepts', "
+        "'Definitions', 'Key Findings', 'Conclusion') to group related cards.\n"
+        "5. Do NOT create duplicate or overlapping cards.\n"
+        "6. The flashcards should progress logically through the document's content.\n\n"
+        "Each flashcard must have 'front' (string), 'back' (string), and 'topic' (string). "
+        f"Return a JSON object with a 'flashcards' array.\n\nText:\n{text_section}"
+    )
+    result = _call_llm(prompt, {"type": "json_object"}, system=system)
     if result:
         try:
             data = json.loads(result)
@@ -54,8 +78,46 @@ def generate_flashcards(text: str, count: int = 5) -> list[dict]:
     return _mock_flashcards(text, count)
 
 
+def _has_real_content(text: str) -> bool:
+    sentences = [s.strip() for s in text.replace("\n", " ").split(".") if len(s.strip()) > 30]
+    return len(sentences) >= 2
+
+
+def _sample_text(text: str, total_chars: int = 15000) -> str:
+    if len(text) <= total_chars:
+        return text
+
+    skip_ahead = min(len(text) // 5, 6000)
+    body = text[skip_ahead:]
+    lines = body.split("\n")
+    content_idx = 0
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if len(stripped) > 60 and " " in stripped and not stripped.startswith("."):
+            content_idx = max(0, i - 1)
+            break
+    body = "\n".join(lines[content_idx:])
+
+    if len(body) <= total_chars:
+        return body
+
+    seg_count = 4
+    seg_size = total_chars // seg_count
+    gap = max(0, len(body) - seg_count * seg_size) // (seg_count - 1)
+    parts = []
+    for i in range(seg_count):
+        start = i * (seg_size + gap)
+        parts.append(body[start:start + seg_size])
+    return "\n\n".join(parts)
+
+
 def generate_quiz(text: str, count: int = 5, exclude_questions: list[str] | None = None) -> list[dict]:
-    max_chars = min(5000, max(2000, count * 600))
+    if not _has_real_content(text):
+        return _mock_quizzes(text, count)
+
+    total_chars = max(5000, count * 3000)
+    text_section = _sample_text(text, total_chars)
+
     exclusion = ""
     if exclude_questions:
         exclusion = (
@@ -63,30 +125,64 @@ def generate_quiz(text: str, count: int = 5, exclude_questions: list[str] | None
             "DO NOT create quiz questions about these same topics. Create questions about DIFFERENT aspects of the content.\n"
             f"Already covered:\n{chr(10).join('- ' + q[:100] for q in exclude_questions)}\n\n"
         )
+
+    system = (
+        "You are a strict document-based quiz generator. "
+        "You MUST ONLY use information explicitly present in the provided text below. "
+        "Never use your pre-trained knowledge or external facts. "
+        "If the text does not contain enough information for a question, do not create that question. "
+        "CRITICAL: Read the entire provided text first, then create questions ONLY about what is "
+        "explicitly written. Do not infer, extrapolate, or add outside knowledge."
+    )
     prompt = (
-        f"Based SOLELY on the following text, generate {count} multiple-choice quiz questions. "
+        f"Based SOLELY on the following document text, generate {count} multiple-choice quiz questions. "
         "STRICT RULES:\n"
-        "- Every question MUST be directly answerable from the provided text.\n"
-        "- The correct answer MUST be explicitly stated in the text.\n"
+        "- EVERY question MUST be directly answerable from the provided text ONLY.\n"
+        "- Each question must reference a specific fact, definition, number, name, or statement found in the text.\n"
+        "- Do NOT use 'complete the sentence', 'fill in the blank', or 'what does this describe' formats. "
+        "These are flashcard-style questions, not quiz questions.\n"
+        "- Instead, use question types like: 'What is...', 'Which of the following...', "
+        "'According to the document...', 'What does the document say about...'.\n"
+        f"- If the text doesn't contain enough information for {count} questions, generate fewer.\n"
         "- Do NOT create questions about topics, facts, or concepts not present in the text.\n"
+        "- The correct answer MUST be explicitly stated word-for-word in the text.\n"
         "- All 4 options must be plausible but only one must be correct based on the text.\n"
-        "- The explanation must quote or reference the specific part of the text that gives the answer.\n\n"
+        "- The explanation must quote the exact sentence from the text that gives the answer.\n\n"
         "Each question should have 'question' (string), 'options' (array of 4 strings), "
         "'correct_answer' (0-based index of correct option), and 'explanation' (string). "
         f"{exclusion}"
-        "Return a JSON object with a 'quizzes' array.\n\nText:\n{text[:max_chars]}"
+        f"Return a JSON object with a 'quizzes' array.\n\nDocument Text:\n{text_section}"
     )
-    result = _call_llm(prompt, {"type": "json_object"})
+    result = _call_llm(prompt, {"type": "json_object"}, system=system)
     if result:
         try:
             data = json.loads(result)
             quizzes = data.get("quizzes", [])
             if quizzes:
-                return quizzes[:count]
+                validated = _validate_quiz_questions(quizzes, text_section)
+                if validated:
+                    return validated[:count]
         except (json.JSONDecodeError, KeyError, TypeError):
             pass
 
     return _mock_quizzes(text, count)
+
+
+def _validate_quiz_questions(quizzes: list[dict], text: str) -> list[dict]:
+    text_lower = text.lower()
+    valid = []
+    for q in quizzes:
+        question = q.get("question", "")
+        if not question:
+            continue
+        key_phrases = [p for p in question.lower().split() if len(p) > 4]
+        if not key_phrases:
+            valid.append(q)
+            continue
+        matches = sum(1 for p in key_phrases if p in text_lower)
+        if matches / len(key_phrases) >= 0.3:
+            valid.append(q)
+    return valid
 
 
 def generate_title(text: str) -> str:
@@ -140,40 +236,60 @@ def generate_chat_response(message: str, context: str = "") -> str:
 
 
 def _mock_flashcards(text: str, count: int) -> list[dict]:
-    topics = ["Core Concepts", "Key Terms", "Important Ideas", "Summary", "Key Takeaways"]
-    sentences = [s.strip() for s in text.replace("\n", " ").split(".") if len(s.strip()) > 20]
+    topic_labels = ["Core Concepts", "Key Terms", "Important Ideas", "Summary", "Key Takeaways"]
+    paragraphs = [p.strip() for p in text.replace("\n", " ").split("  ") if len(p.strip()) > 80]
+    if not paragraphs:
+        return [{"front": "No content found", "back": "The document has no extractable text.", "topic": "Error"}]
+
     cards = []
-    for i in range(min(count, 10)):
-        sentence = sentences[i % max(len(sentences), 1)] if sentences else f"Concept {i+1}"
-        words = sentence.split()[:6]
-        question = f"What is the significance of {' '.join(words)}?" if words else f"Question {i+1}"
+    for i in range(min(count, len(paragraphs))):
+        para = paragraphs[i]
+        sentences_in_para = [s.strip() for s in para.split(".") if len(s.strip()) > 20]
+        if not sentences_in_para:
+            continue
+        first_sentence = sentences_in_para[0]
+        words = first_sentence.split()
+        topic = " ".join(words[:8]) if len(words) > 8 else first_sentence
         cards.append({
-            "front": question,
-            "back": sentence[:200] if len(sentence) > 10 else f"Key point #{i+1} from the document.",
-            "topic": topics[i % len(topics)],
+            "front": f"Summarize what the document says about: {topic[:120]}",
+            "back": para[:300],
+            "topic": topic_labels[i % len(topic_labels)],
         })
     return cards
 
 
 def _mock_quizzes(text: str, count: int) -> list[dict]:
-    templates = [
-        {"q": "What is the main topic discussed in this document?", "opts": ["The main subject area", "An unrelated topic", "A minor detail", "None of the above"], "correct": 0, "exp": "The document focuses on its primary subject matter throughout."},
-        {"q": "Which of the following best describes the key concept?", "opts": ["A fundamental principle", "An optional detail", "A tangential point", "An incorrect assumption"], "correct": 0, "exp": "The key concept is the central idea around which the document is structured."},
-        {"q": "What can be inferred from the content?", "opts": ["The author's main argument", "A hidden meaning", "An unrelated fact", "A personal opinion"], "correct": 0, "exp": "The content presents the author's main argument with supporting evidence."},
-        {"q": "How does the document structure its information?", "opts": ["Logically from basics to advanced", "Randomly without structure", "In reverse chronological order", "As a list of facts"], "correct": 0, "exp": "Information is organized logically, building from foundational concepts to more complex ideas."},
-        {"q": "What is the primary purpose of this material?", "opts": ["To educate and inform", "To entertain", "To persuade", "To criticize"], "correct": 0, "exp": "The material is educational in nature, designed to inform the reader about the subject."},
-    ]
+    paragraphs = [p.strip() for p in text.replace("\n", " ").split("  ") if len(p.strip()) > 80]
+    if not paragraphs:
+        return [{"question": "No readable content found in the document.", "options": ["Yes", "No", "Maybe", "N/A"], "correct_answer": 1, "explanation": "The document does not contain extractable text."}]
+
+    random.shuffle(paragraphs)
     quizzes = []
-    for i in range(min(count, len(templates))):
-        t = templates[i]
+    for i in range(min(count, len(paragraphs))):
+        para = paragraphs[i]
+        sentences_in_para = [s.strip() for s in para.split(".") if len(s.strip()) > 20]
+        if len(sentences_in_para) < 2:
+            continue
+
+        answer_sentence = sentences_in_para[0]
+        wrong_sentences = random.sample([s for s in sentences_in_para[1:] if s != answer_sentence], min(3, len(sentences_in_para)-1))
+
+        correct = answer_sentence[:200]
+        options = [correct] + [s[:200] for s in wrong_sentences]
+        while len(options) < 4:
+            options.append("None of the above")
+        random.shuffle(options)
+        correct_idx = options.index(correct)
+
+        key_words = " ".join(answer_sentence.split()[:4])
+
         quizzes.append({
-            "question": t["q"],
-            "options": t["opts"],
-            "correct_answer": t["correct"],
-            "explanation": t["exp"],
+            "question": f"Which of the following statements is directly from the document about {key_words}?",
+            "options": options,
+            "correct_answer": correct_idx,
+            "explanation": f"The document states: \"{answer_sentence[:200]}\"",
         })
-    random.shuffle(quizzes)
-    return quizzes
+    return quizzes[:count]
 
 
 def _mock_chat_response(message: str) -> str:

@@ -125,3 +125,49 @@ async def list_attempts(authorization: str = Header("")):
             document_name=a.get("documents", {}).get("filename") if isinstance(a.get("documents"), dict) else None,
         ))
     return QuizAttemptList(attempts=attempts)
+
+
+@router.get("/attempts/{attempt_id}")
+async def get_attempt(attempt_id: str, authorization: str = Header("")):
+    token = _extract_token(authorization)
+    user_id = get_user_id(token)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    supabase = get_supabase()
+    resp = supabase.table("quiz_attempts").select("*, documents(filename)").eq("id", attempt_id).eq("user_id", user_id).execute()
+    if not resp.data:
+        raise HTTPException(status_code=404, detail="Attempt not found")
+
+    a = resp.data[0]
+    doc_id = a["document_id"]
+
+    quizzes_resp = supabase.table("quizzes").select("*").eq("document_id", doc_id).execute()
+    quizzes = quizzes_resp.data or []
+
+    return {
+        "id": a["id"],
+        "document_id": doc_id,
+        "document_name": (a.get("documents") or {}).get("filename") if isinstance(a.get("documents"), dict) else None,
+        "score": a["score"],
+        "total": a["total"],
+        "answers": a.get("answers", []),
+        "completed_at": a["completed_at"],
+        "quizzes": quizzes,
+    }
+
+
+@router.delete("/attempts/{attempt_id}")
+async def delete_attempt(attempt_id: str, authorization: str = Header("")):
+    token = _extract_token(authorization)
+    user_id = get_user_id(token)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    supabase = get_supabase()
+    resp = supabase.table("quiz_attempts").select("id").eq("id", attempt_id).eq("user_id", user_id).execute()
+    if not resp.data:
+        raise HTTPException(status_code=404, detail="Attempt not found")
+
+    supabase.table("quiz_attempts").delete().eq("id", attempt_id).execute()
+    return {"ok": True}

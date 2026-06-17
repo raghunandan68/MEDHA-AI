@@ -25,7 +25,7 @@ export default function Layout() {
   const { user, loading } = useAuth();
   const location = useLocation();
   const isHome = location.pathname === "/";
-  const isAuthPage = location.pathname === "/login" || location.pathname === "/register";
+  const isAuthPage = location.pathname === "/login" || location.pathname === "/register" || location.pathname === "/auth/callback";
 
   if (loading) return <LoadingScreen />;
 

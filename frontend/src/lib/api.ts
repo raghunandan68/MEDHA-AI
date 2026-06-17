@@ -9,6 +9,29 @@ class ApiError extends Error {
   }
 }
 
+let onUnauthorized: (() => void) | null = null;
+
+export function setOnUnauthorized(handler: () => void) {
+  onUnauthorized = handler;
+}
+
+function decodeToken(token: string): { exp?: number } | null {
+  try {
+    const payload = token.split(".")[1];
+    if (!payload) return null;
+    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    return JSON.parse(atob(base64));
+  } catch {
+    return null;
+  }
+}
+
+export function isTokenExpired(token: string): boolean {
+  const decoded = decodeToken(token);
+  if (!decoded || !decoded.exp) return true;
+  return Date.now() >= decoded.exp * 1000;
+}
+
 export function getToken(): string | null {
   try {
     return localStorage.getItem(TOKEN_KEY);
@@ -30,6 +53,13 @@ async function request<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const token = getToken();
+  if (token && isTokenExpired(token)) {
+    clearToken();
+    localStorage.removeItem("medha_user");
+    onUnauthorized?.();
+    throw new ApiError("Session expired", 401);
+  }
+
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(options.headers as Record<string, string>),
@@ -44,6 +74,11 @@ async function request<T>(
   });
 
   if (!resp.ok) {
+    if (resp.status === 401 && token) {
+      clearToken();
+      localStorage.removeItem("medha_user");
+      onUnauthorized?.();
+    }
     const body = await resp.json().catch(() => ({ detail: resp.statusText }));
     throw new ApiError(body.detail ?? "Request failed", resp.status);
   }
@@ -66,6 +101,12 @@ export const api = {
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
   upload: async <T>(path: string, file: File): Promise<T> => {
     const token = getToken();
+    if (token && isTokenExpired(token)) {
+      clearToken();
+      localStorage.removeItem("medha_user");
+      onUnauthorized?.();
+      throw new ApiError("Session expired", 401);
+    }
     const formData = new FormData();
     formData.append("file", file);
     const headers: Record<string, string> = {};
@@ -76,6 +117,11 @@ export const api = {
       body: formData,
     });
     if (!resp.ok) {
+      if (resp.status === 401 && token) {
+        clearToken();
+        localStorage.removeItem("medha_user");
+        onUnauthorized?.();
+      }
       const body = await resp.json().catch(() => ({ detail: resp.statusText }));
       throw new ApiError(body.detail ?? "Upload failed", resp.status);
     }
