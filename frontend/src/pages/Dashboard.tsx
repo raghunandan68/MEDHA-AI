@@ -185,19 +185,22 @@ export default function Dashboard() {
                     <span className={`h-2 w-2 rounded-full ${doc.status === "ready" ? "bg-green-500" : "bg-amber-500"}`} />
                   </div>
                 </Link>
-                <div className="flex gap-2">
-                  <Link to={`/quiz/${doc.id}`}
-                    className="flex-1 text-center bg-violet-500/10 border border-violet-500/20 hover:bg-violet-500/20 text-violet-400 text-[10px] font-bold px-2 py-1.5 rounded-lg transition-all"
-                  >
-                    Take Quiz
-                  </Link>
-                  <button
-                    onClick={(e) => handleDelete(doc.id, e)}
-                    className="h-7 w-7 flex items-center justify-center rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 text-xs transition-all"
-                  >
-                    ✕
-                  </button>
-                </div>
+                  <div className="flex gap-2">
+                    <Link to={`/quiz/${doc.id}`}
+                      className="flex-1 text-center bg-violet-500/10 border border-violet-500/20 hover:bg-violet-500/20 text-violet-400 text-[10px] font-bold px-2 py-1.5 rounded-lg transition-all"
+                    >
+                      Take Quiz
+                    </Link>
+                    <button
+                      onClick={(e) => handleDelete(doc.id, e)}
+                      className="flex items-center gap-1 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 text-[10px] font-bold px-2 py-1.5 transition-all"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      Delete
+                    </button>
+                  </div>
               </div>
             ))}
           </div>
