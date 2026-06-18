@@ -5,7 +5,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from app.config import settings
 from app.database import get_supabase, get_user_id
-from app.models.auth import SignUpIn, SignInIn, AuthOut, AuthError, ChangePasswordIn, UpdateProfileIn, MessageOut
+from app.models.auth import SignUpIn, SignInIn, AuthOut, AuthError, ChangePasswordIn, ForgotPasswordIn, UpdateProfileIn, MessageOut
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 security = HTTPBearer()
@@ -13,8 +13,11 @@ security = HTTPBearer()
 
 @router.post("/signup", response_model=AuthOut | AuthError)
 async def signup(body: SignUpIn):
+    if body.password != body.confirm_password:
+        raise HTTPException(status_code=400, detail="Passwords do not match")
+    
     supabase = get_supabase()
-    resp = supabase.auth.sign_up({
+    resp = await supabase.auth.sign_up({
         "email": body.email,
         "password": body.password,
         "options": {"data": {"name": body.name}},
@@ -120,6 +123,35 @@ async def change_password(
         raise HTTPException(status_code=500, detail=f"Failed to update password: {e}")
 
     return MessageOut(message="Password changed successfully")
+
+
+@router.post("/forgot-password", response_model=MessageOut)
+async def forgot_password(body: ForgotPasswordIn):
+    supabase = get_supabase()
+
+    if body.new_password != body.confirm_password:
+        raise HTTPException(status_code=400, detail="New passwords do not match")
+
+    if not body.email or "@" not in body.email:
+        raise HTTPException(status_code=400, detail="Enter valid email")
+
+    user_exists = await _user_exists_by_email(body.email)
+    if not user_exists:
+        raise HTTPException(status_code=404, detail="Email not found")
+
+    try:
+        resp = supabase.auth.admin.list_users()
+        users = resp
+        user = next((u for u in users if u.email == body.email), None)
+        if not user:
+            raise HTTPException(status_code=404, detail="Email not found")
+
+        supabase.auth.admin.update_user_by_id(user.id, {"password": body.new_password})
+        return MessageOut(message="Password changed successfully")
+    except Exception as e:
+        if "404" in str(e):
+            raise HTTPException(status_code=404, detail="Email not found")
+        raise HTTPException(status_code=500, detail=f"Failed to update password: {e}")
 
 
 @router.delete("/account", response_model=MessageOut)

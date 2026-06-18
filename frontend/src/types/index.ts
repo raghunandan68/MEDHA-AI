@@ -30,6 +30,7 @@ export interface Quiz {
   options: string[];
   correct_answer: number;
   explanation: string;
+  topic: string;
   created_at: string;
 }
 

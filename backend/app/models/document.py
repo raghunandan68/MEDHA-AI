@@ -35,6 +35,7 @@ class QuizOut(BaseModel):
     options: list[str]
     correct_answer: int
     explanation: str
+    topic: str = ""
     created_at: str
 
 
@@ -64,6 +65,20 @@ class QuizAttemptList(BaseModel):
     attempts: list[QuizAttemptOut]
 
 
+class TopicPerformance(BaseModel):
+    topic: str
+    correct: int
+    total: int
+    score: float
+
+
+class DocumentPerformance(BaseModel):
+    document_name: str
+    document_id: str
+    average_score: float
+    attempts_count: int
+
+
 class AnalyticsOverview(BaseModel):
     total_documents: int
     total_quizzes_taken: int
@@ -71,3 +86,5 @@ class AnalyticsOverview(BaseModel):
     best_score: float
     recent_attempts: list[QuizAttemptOut]
     score_distribution: list[int]
+    document_performance: list[DocumentPerformance]
+    topic_performance: list[TopicPerformance]

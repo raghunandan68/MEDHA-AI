@@ -4,6 +4,7 @@ from pydantic import BaseModel
 class SignUpIn(BaseModel):
     email: str
     password: str
+    confirm_password: str
     name: str
 
 
@@ -26,6 +27,11 @@ class AuthError(BaseModel):
 class ChangePasswordIn(BaseModel):
     current_password: str
     new_password: str
+
+class ForgotPasswordIn(BaseModel):
+    email: str
+    new_password: str
+    confirm_password: str
 
 class UpdateProfileIn(BaseModel):
     name: str | None = None

@@ -64,6 +64,7 @@ async def generate_quizzes_for_doc(doc_id: str, count: int = 5, authorization: s
             "options": q.get("options", ["A", "B", "C", "D"]),
             "correct_answer": q.get("correct_answer", 0),
             "explanation": q.get("explanation", "")[:500],
+            "topic": q.get("topic", "")[:100],
             "created_at": created_at,
         }
         resp = supabase.table("quizzes").insert(record).execute()

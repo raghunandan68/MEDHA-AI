@@ -58,8 +58,8 @@ def generate_flashcards(text: str, count: int = 5) -> list[dict]:
         "2. Each 'front' should be a clear question or concept name.\n"
         "3. Each 'back' must be a detailed, self-contained explanation so the user understands "
         "the concept fully WITHOUT needing the original document.\n"
-        "4. Assign a 'topic' (short category label like 'Introduction', 'Core Concepts', "
-        "'Definitions', 'Key Findings', 'Conclusion') to group related cards.\n"
+        "4. Assign a 'topic' (the SPECIFIC concept or subject from the document content itself, "
+        "e.g. 'Photosynthesis', 'Supply Chain', 'Neural Networks', NOT generic labels like 'Introduction' or 'Core Concepts').\n"
         "5. Do NOT create duplicate or overlapping cards.\n"
         "6. The flashcards should progress logically through the document's content.\n\n"
         "Each flashcard must have 'front' (string), 'back' (string), and 'topic' (string). "
@@ -149,7 +149,10 @@ def generate_quiz(text: str, count: int = 5, exclude_questions: list[str] | None
         "- All 4 options must be plausible but only one must be correct based on the text.\n"
         "- The explanation must quote the exact sentence from the text that gives the answer.\n\n"
         "Each question should have 'question' (string), 'options' (array of 4 strings), "
-        "'correct_answer' (0-based index of correct option), and 'explanation' (string). "
+        "'correct_answer' (0-based index of correct option), 'explanation' (string), "
+        "and 'topic' (string) — the SPECIFIC concept or subject this question tests, extracted from the "
+        "document content itself (e.g. 'Photosynthesis', 'Market Equilibrium', 'TCP/IP Protocol'), "
+        "NOT generic category labels like 'Core Concepts' or 'Definitions'. "
         f"{exclusion}"
         f"Return a JSON object with a 'quizzes' array.\n\nDocument Text:\n{text_section}"
     )
@@ -236,7 +239,6 @@ def generate_chat_response(message: str, context: str = "") -> str:
 
 
 def _mock_flashcards(text: str, count: int) -> list[dict]:
-    topic_labels = ["Core Concepts", "Key Terms", "Important Ideas", "Summary", "Key Takeaways"]
     paragraphs = [p.strip() for p in text.replace("\n", " ").split("  ") if len(p.strip()) > 80]
     if not paragraphs:
         return [{"front": "No content found", "back": "The document has no extractable text.", "topic": "Error"}]
@@ -253,7 +255,7 @@ def _mock_flashcards(text: str, count: int) -> list[dict]:
         cards.append({
             "front": f"Summarize what the document says about: {topic[:120]}",
             "back": para[:300],
-            "topic": topic_labels[i % len(topic_labels)],
+            "topic": topic[:80],
         })
     return cards
 
@@ -261,7 +263,7 @@ def _mock_flashcards(text: str, count: int) -> list[dict]:
 def _mock_quizzes(text: str, count: int) -> list[dict]:
     paragraphs = [p.strip() for p in text.replace("\n", " ").split("  ") if len(p.strip()) > 80]
     if not paragraphs:
-        return [{"question": "No readable content found in the document.", "options": ["Yes", "No", "Maybe", "N/A"], "correct_answer": 1, "explanation": "The document does not contain extractable text."}]
+        return [{"question": "No readable content found in the document.", "options": ["Yes", "No", "Maybe", "N/A"], "correct_answer": 1, "explanation": "The document does not contain extractable text.", "topic": "General"}]
 
     random.shuffle(paragraphs)
     quizzes = []
@@ -288,6 +290,7 @@ def _mock_quizzes(text: str, count: int) -> list[dict]:
             "options": options,
             "correct_answer": correct_idx,
             "explanation": f"The document states: \"{answer_sentence[:200]}\"",
+            "topic": key_words[:80],
         })
     return quizzes[:count]
 

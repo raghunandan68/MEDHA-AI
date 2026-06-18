@@ -15,6 +15,7 @@ node_modules/
 dist/
 dist-ssr/
 *.local
+package-lock.json
 
 # Environment files
 .env
@@ -38,3 +39,17 @@ Thumbs.db
 # Project-specific
 backend/uploads/
 *.log
+
+# Test files
+test_forgot_password*.py
+
+# Postman configuration
+.postman/
+postman/
+
+# Build artifacts
+frontend/dist/
+
+# Environment files
+backend/.env
+frontend/.env.example

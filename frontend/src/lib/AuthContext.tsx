@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { api, setToken, clearToken, getToken, isTokenExpired, setOnUnauthorized } from "./api";
+import { supabase } from "./supabase";
 
 interface User {
   id: string;
@@ -12,7 +13,8 @@ interface AuthState {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<string | null>;
-  register: (name: string, email: string, password: string) => Promise<string | null>;
+  register: (name: string, email: string, password: string, confirmPassword: string) => Promise<string | null>;
+  forgotPassword: (email: string, newPassword: string, confirmPassword: string) => Promise<string | null>;
   logout: () => Promise<void>;
 }
 
@@ -76,7 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const register = useCallback(async (name: string, email: string, password: string): Promise<string | null> => {
+  const register = useCallback(async (name: string, email: string, password: string, confirmPassword: string): Promise<string | null> => {
     setLoading(true);
     try {
       await api.post<{
@@ -84,11 +86,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: string;
         name: string;
         access_token: string;
-      }>("/api/auth/signup", { name, email, password });
+      }>("/api/auth/signup", { name, email, password, confirm_password: confirmPassword });
       return null;
     } catch (err: unknown) {
       const e = err as { status?: number; message?: string };
       return e.message ?? "Registration failed";
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const forgotPassword = useCallback(async (email: string, newPassword: string, confirmPassword: string): Promise<string | null> => {
+    setLoading(true);
+    try {
+      await api.post<{
+        message: string;
+      }>("/api/auth/forgot-password", {
+        email,
+        new_password: newPassword,
+        confirm_password: confirmPassword,
+      });
+      return null;
+    } catch (err: unknown) {
+      const e = err as { status?: number; message?: string };
+      return e.message ?? "Failed to reset password";
     } finally {
       setLoading(false);
     }
@@ -99,7 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [clearSession]);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, forgotPassword, logout }}>
       {children}
     </AuthContext.Provider>
   );

@@ -27,6 +27,7 @@ create table if not exists quizzes (
   options jsonb not null default '[]'::jsonb,
   correct_answer int not null,
   explanation text not null default '',
+  topic text not null default '',
   created_at timestamptz not null default now()
 );
 
