@@ -4,7 +4,7 @@ from pydantic import BaseModel
 
 from app.database import get_supabase, get_user_id
 from app.models.document import DocumentOut, DocumentList
-from app.services.pdf_processor import save_upload, save_text, cleanup_file
+from app.services.pdf_processor import save_upload, save_text, cleanup_file, ALL_SUPPORTED_EXTENSIONS
 from app.services.ai_service import generate_title
 
 
@@ -45,8 +45,16 @@ async def upload_document(file: UploadFile = File(...), authorization: str = Hea
     if not user_id:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    if not file.filename or not file.filename.lower().endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Only PDF files are accepted")
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No file provided")
+
+    ext = f".{file.filename.lower().rsplit('.', 1)[-1]}" if "." in file.filename else ""
+
+    if ext not in ALL_SUPPORTED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail="Supported formats: PDF, DOCX, XLSX, CSV, TXT, PNG, JPG, JPEG, BMP, TIFF, WebP"
+        )
 
     bytes_data = await file.read()
     stored_name, local_path = save_upload(bytes_data, file.filename)

@@ -108,12 +108,12 @@ export default function Dashboard() {
 
       <div className="grid gap-6 md:grid-cols-2">
         <label className="bg-medha-card hover:bg-slate-900/40 border-dashed border-2 border-violet-500/20 rounded-2xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-300 group hover:border-violet-500/40">
-          <input type="file" accept=".pdf" onChange={handleFileUpload} className="hidden" disabled={uploading} />
+          <input type="file" accept=".pdf,.docx,.xlsx,.csv,.txt,.png,.jpg,.jpeg,.bmp,.tiff,.webp" onChange={handleFileUpload} className="hidden" disabled={uploading} />
           <div className="h-16 w-16 bg-violet-600/10 rounded-2xl flex items-center justify-center mb-4 transition-transform group-hover:scale-110 duration-300">
             <span className="text-3xl text-violet-400">{uploading ? "⏳" : "📤"}</span>
           </div>
           <h3 className="text-lg font-bold text-white mb-1">{uploading ? "Uploading..." : "Upload File"}</h3>
-          <p className="text-xs text-slate-500 mb-2">PDF only</p>
+          <p className="text-xs text-slate-500 mb-2">PDF, DOCX, XLSX, CSV, TXT, Images</p>
           <p className="text-xs text-slate-400">Drag & drop or click to upload</p>
         </label>
 
@@ -161,7 +161,7 @@ export default function Dashboard() {
 
         {documents.length === 0 ? (
           <div className="bg-medha-card rounded-2xl p-8 text-center text-slate-400 text-sm">
-            No documents uploaded yet. Upload a PDF above to get started!
+            No documents uploaded yet. Upload a file above to get started!
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
@@ -172,7 +172,7 @@ export default function Dashboard() {
               >
                 <Link to={`/flashcards/${doc.id}`} className="space-y-3 flex-1">
                   <div className="flex justify-between items-start">
-                    <span className={`${doc.filename.endsWith('.txt') ? 'bg-blue-500/20 text-blue-400' : 'bg-red-500/20 text-red-400'} text-[10px] font-bold px-2 py-0.5 rounded`}>{doc.filename.endsWith('.txt') ? 'TEXT' : 'PDF'}</span>
+                    <span className={`${doc.filename.endsWith('.txt') ? 'bg-blue-500/20 text-blue-400' : doc.filename.endsWith('.docx') ? 'bg-indigo-500/20 text-indigo-400' : doc.filename.endsWith('.xlsx') ? 'bg-green-500/20 text-green-400' : doc.filename.endsWith('.csv') ? 'bg-amber-500/20 text-amber-400' : doc.filename.match(/\.(png|jpg|jpeg|bmp|tiff|webp)$/) ? 'bg-pink-500/20 text-pink-400' : 'bg-red-500/20 text-red-400'} text-[10px] font-bold px-2 py-0.5 rounded`}>{doc.filename.endsWith('.txt') ? 'TEXT' : doc.filename.endsWith('.docx') ? 'DOCX' : doc.filename.endsWith('.xlsx') ? 'XLSX' : doc.filename.endsWith('.csv') ? 'CSV' : doc.filename.match(/\.(png|jpg|jpeg|bmp|tiff|webp)$/) ? 'IMAGE' : 'PDF'}</span>
                     <span className="text-xs text-slate-500">
                       {new Date(doc.created_at).toLocaleDateString()}
                     </span>

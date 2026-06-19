@@ -28,6 +28,9 @@ class ChangePasswordIn(BaseModel):
     current_password: str
     new_password: str
 
+class VerifyEmailIn(BaseModel):
+    email: str
+
 class ForgotPasswordIn(BaseModel):
     email: str
     new_password: str

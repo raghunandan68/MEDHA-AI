@@ -1,8 +1,11 @@
 import json
 import random
+import logging
 from typing import Any
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 def _call_llm(prompt: str, response_format: dict | None = None, system: str | None = None) -> str | None:
@@ -22,17 +25,18 @@ def _call_llm(prompt: str, response_format: dict | None = None, system: str | No
 
     try:
         from openai import OpenAI
-        client = OpenAI(api_key=api_key, base_url=base_url)
+        client = OpenAI(api_key=api_key, base_url=base_url, timeout=120.0)
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
         messages.append({"role": "user", "content": prompt})
-        kwargs: dict[str, Any] = {"model": model, "messages": messages}
+        kwargs: dict[str, Any] = {"model": model, "messages": messages, "max_tokens": 4096}
         if response_format:
             kwargs["response_format"] = {"type": "json_object"}
         resp = client.chat.completions.create(**kwargs)
         return resp.choices[0].message.content
-    except Exception:
+    except Exception as e:
+        logger.error(f"LLM call failed: {e}")
         return None
 
 
@@ -40,7 +44,7 @@ def generate_flashcards(text: str, count: int = 5) -> list[dict]:
     if not _has_real_content(text):
         return _mock_flashcards(text, count)
 
-    total_chars = max(5000, count * 3000)
+    total_chars = min(10000, max(3000, count * 500))
     text_section = _sample_text(text, total_chars)
 
     system = (
@@ -79,7 +83,10 @@ def generate_flashcards(text: str, count: int = 5) -> list[dict]:
 
 
 def _has_real_content(text: str) -> bool:
-    sentences = [s.strip() for s in text.replace("\n", " ").split(".") if len(s.strip()) > 30]
+    clean = text.strip()
+    if len(clean) < 50:
+        return False
+    sentences = [s.strip() for s in clean.replace("\n", " ").split(".") if len(s.strip()) > 20]
     return len(sentences) >= 2
 
 
@@ -115,7 +122,7 @@ def generate_quiz(text: str, count: int = 5, exclude_questions: list[str] | None
     if not _has_real_content(text):
         return _mock_quizzes(text, count)
 
-    total_chars = max(5000, count * 3000)
+    total_chars = min(10000, max(3000, count * 500))
     text_section = _sample_text(text, total_chars)
 
     exclusion = ""
@@ -135,15 +142,16 @@ def generate_quiz(text: str, count: int = 5, exclude_questions: list[str] | None
         "explicitly written. Do not infer, extrapolate, or add outside knowledge."
     )
     prompt = (
-        f"Based SOLELY on the following document text, generate {count} multiple-choice quiz questions. "
+        f"Based SOLELY on the following document text, generate EXACTLY {count} multiple-choice quiz questions. "
+        "You MUST generate the EXACT number of questions requested. Do not generate fewer.\n"
         "STRICT RULES:\n"
+        "- You MUST generate EXACTLY {count} questions. Not fewer, not more.\n"
         "- EVERY question MUST be directly answerable from the provided text ONLY.\n"
         "- Each question must reference a specific fact, definition, number, name, or statement found in the text.\n"
         "- Do NOT use 'complete the sentence', 'fill in the blank', or 'what does this describe' formats. "
         "These are flashcard-style questions, not quiz questions.\n"
         "- Instead, use question types like: 'What is...', 'Which of the following...', "
         "'According to the document...', 'What does the document say about...'.\n"
-        f"- If the text doesn't contain enough information for {count} questions, generate fewer.\n"
         "- Do NOT create questions about topics, facts, or concepts not present in the text.\n"
         "- The correct answer MUST be explicitly stated word-for-word in the text.\n"
         "- All 4 options must be plausible but only one must be correct based on the text.\n"
@@ -154,7 +162,7 @@ def generate_quiz(text: str, count: int = 5, exclude_questions: list[str] | None
         "document content itself (e.g. 'Photosynthesis', 'Market Equilibrium', 'TCP/IP Protocol'), "
         "NOT generic category labels like 'Core Concepts' or 'Definitions'. "
         f"{exclusion}"
-        f"Return a JSON object with a 'quizzes' array.\n\nDocument Text:\n{text_section}"
+        f"Return a JSON object with a 'quizzes' array containing EXACTLY {count} questions.\n\nDocument Text:\n{text_section}"
     )
     result = _call_llm(prompt, {"type": "json_object"}, system=system)
     if result:
@@ -176,14 +184,15 @@ def _validate_quiz_questions(quizzes: list[dict], text: str) -> list[dict]:
     valid = []
     for q in quizzes:
         question = q.get("question", "")
-        if not question:
+        options = q.get("options", [])
+        if not question or len(options) < 4:
             continue
         key_phrases = [p for p in question.lower().split() if len(p) > 4]
         if not key_phrases:
             valid.append(q)
             continue
         matches = sum(1 for p in key_phrases if p in text_lower)
-        if matches / len(key_phrases) >= 0.3:
+        if matches / len(key_phrases) >= 0.15:
             valid.append(q)
     return valid
 
@@ -239,14 +248,16 @@ def generate_chat_response(message: str, context: str = "") -> str:
 
 
 def _mock_flashcards(text: str, count: int) -> list[dict]:
-    paragraphs = [p.strip() for p in text.replace("\n", " ").split("  ") if len(p.strip()) > 80]
+    paragraphs = [p.strip() for p in text.replace("\n", " ").split("  ") if len(p.strip()) > 40]
+    if not paragraphs:
+        paragraphs = [p.strip() for p in text.split("\n") if len(p.strip()) > 30]
     if not paragraphs:
         return [{"front": "No content found", "back": "The document has no extractable text.", "topic": "Error"}]
 
     cards = []
     for i in range(min(count, len(paragraphs))):
         para = paragraphs[i]
-        sentences_in_para = [s.strip() for s in para.split(".") if len(s.strip()) > 20]
+        sentences_in_para = [s.strip() for s in para.split(".") if len(s.strip()) > 15]
         if not sentences_in_para:
             continue
         first_sentence = sentences_in_para[0]
@@ -261,7 +272,9 @@ def _mock_flashcards(text: str, count: int) -> list[dict]:
 
 
 def _mock_quizzes(text: str, count: int) -> list[dict]:
-    paragraphs = [p.strip() for p in text.replace("\n", " ").split("  ") if len(p.strip()) > 80]
+    paragraphs = [p.strip() for p in text.replace("\n", " ").split("  ") if len(p.strip()) > 40]
+    if not paragraphs:
+        paragraphs = [p.strip() for p in text.split("\n") if len(p.strip()) > 30]
     if not paragraphs:
         return [{"question": "No readable content found in the document.", "options": ["Yes", "No", "Maybe", "N/A"], "correct_answer": 1, "explanation": "The document does not contain extractable text.", "topic": "General"}]
 
@@ -269,7 +282,7 @@ def _mock_quizzes(text: str, count: int) -> list[dict]:
     quizzes = []
     for i in range(min(count, len(paragraphs))):
         para = paragraphs[i]
-        sentences_in_para = [s.strip() for s in para.split(".") if len(s.strip()) > 20]
+        sentences_in_para = [s.strip() for s in para.split(".") if len(s.strip()) > 15]
         if len(sentences_in_para) < 2:
             continue
 

@@ -32,19 +32,15 @@ export default function ForgotPassword() {
     }
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/forgot-password`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/verify-email`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          email,
-          new_password: "temp",
-          confirm_password: "temp",
-        }),
+        body: JSON.stringify({ email }),
       });
 
-      if (response.status === 404) {
+      if (!response.ok) {
         setError("Invalid email please register first");
         setLoading(false);
         return;

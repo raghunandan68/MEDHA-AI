@@ -15,7 +15,6 @@ node_modules/
 dist/
 dist-ssr/
 *.local
-package-lock.json
 
 # Environment files
 .env
@@ -52,4 +51,3 @@ frontend/dist/
 
 # Environment files
 backend/.env
-frontend/.env.example

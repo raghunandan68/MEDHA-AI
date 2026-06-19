@@ -5,7 +5,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 from app.config import settings
 from app.database import get_supabase, get_user_id
-from app.models.auth import SignUpIn, SignInIn, AuthOut, AuthError, ChangePasswordIn, ForgotPasswordIn, UpdateProfileIn, MessageOut
+from app.models.auth import SignUpIn, SignInIn, AuthOut, AuthError, ChangePasswordIn, VerifyEmailIn, ForgotPasswordIn, UpdateProfileIn, MessageOut
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 security = HTTPBearer()
@@ -17,10 +17,10 @@ async def signup(body: SignUpIn):
         raise HTTPException(status_code=400, detail="Passwords do not match")
     
     supabase = get_supabase()
-    resp = await supabase.auth.sign_up({
+    resp = supabase.auth.sign_up({
         "email": body.email,
         "password": body.password,
-        "options": {"data": {"name": body.name}},
+        "options": {"data": {"name": body.name}, "email_confirm": True},
     })
     if resp.user:
         return AuthOut(
@@ -69,14 +69,12 @@ async def _user_exists_by_email(email: str) -> bool:
         "apikey": settings.supabase_service_key,
         "Authorization": f"Bearer {settings.supabase_service_key}",
     }
-    params = {"email": email}
 
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.get(
                 f"{settings.supabase_url}/auth/v1/admin/users",
                 headers=headers,
-                params=params,
             )
 
         if resp.status_code != 200:
@@ -84,7 +82,7 @@ async def _user_exists_by_email(email: str) -> bool:
 
         data = resp.json()
         users = data.get("users", [])
-        return len(users) > 0
+        return any(u.get("email") == email for u in users)
     except Exception:
         return False
 
@@ -123,6 +121,18 @@ async def change_password(
         raise HTTPException(status_code=500, detail=f"Failed to update password: {e}")
 
     return MessageOut(message="Password changed successfully")
+
+
+@router.post("/verify-email", response_model=MessageOut)
+async def verify_email(body: VerifyEmailIn):
+    if not body.email or "@" not in body.email:
+        raise HTTPException(status_code=400, detail="Enter valid email")
+
+    user_exists = await _user_exists_by_email(body.email)
+    if not user_exists:
+        raise HTTPException(status_code=404, detail="Email not found")
+
+    return MessageOut(message="Email verified")
 
 
 @router.post("/forgot-password", response_model=MessageOut)

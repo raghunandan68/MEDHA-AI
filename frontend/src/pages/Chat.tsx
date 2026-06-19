@@ -349,7 +349,7 @@ export default function Chat() {
                   handleSendWithUpload();
                 }
               }}
-              placeholder={userDocs.length > 0 ? "Ask a question about your document..." : "Upload a PDF to start asking questions about it"}
+              placeholder={userDocs.length > 0 ? "Ask a question about your document..." : "Upload a document to start asking questions about it"}
               rows={1}
               className="block w-full resize-none rounded-2xl bg-transparent px-12 py-3 text-white placeholder:text-slate-500 outline-none text-sm"
             />
@@ -357,7 +357,7 @@ export default function Chat() {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".pdf"
+              accept=".pdf,.docx,.xlsx,.csv,.txt,.png,.jpg,.jpeg,.bmp,.tiff,.webp"
               onChange={handleFileUpload}
               className="hidden"
             />
@@ -367,7 +367,7 @@ export default function Chat() {
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
                 className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-all disabled:opacity-50"
-                title="Upload PDF"
+                title="Upload Document"
               >
                 {uploading ? (
                   <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
