@@ -91,7 +91,7 @@ async def send_message(body: ChatSendIn, authorization: str = Header("")):
         if doc_resp.data:
             doc = doc_resp.data[0]
             storage_path = doc["file_path"]
-            context = download_and_extract_text(storage_path)
+            context = download_and_extract_text(storage_path, user_token=token)
     else:
         doc_resp = supabase.table("documents").select("*").eq("user_id", user_id).order("created_at", desc=True).limit(3).execute()
         if doc_resp.data:
@@ -100,7 +100,7 @@ async def send_message(body: ChatSendIn, authorization: str = Header("")):
             context_parts = []
             for doc in doc_resp.data:
                 storage_path = doc["file_path"]
-                doc_text = download_and_extract_text(storage_path)
+                doc_text = download_and_extract_text(storage_path, user_token=token)
                 if doc_text:
                     context_parts.append(f"--- Document: {doc['filename']} ---\n{doc_text[:per_doc]}")
             context = "\n\n".join(context_parts)

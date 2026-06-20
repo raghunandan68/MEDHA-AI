@@ -56,7 +56,7 @@ async def generate_flashcards_for_doc(doc_id: str, authorization: str = Header("
     doc = doc_resp.data[0]
     storage_path = doc["file_path"]
 
-    text = download_and_extract_text(storage_path)
+    text = download_and_extract_text(storage_path, user_token=token)
     count = _adaptive_count(text)
     supabase.table("flashcards").delete().eq("document_id", doc_id).execute()
 

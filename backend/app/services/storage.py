@@ -2,7 +2,7 @@ import tempfile
 import logging
 from pathlib import Path
 
-from app.database import get_supabase
+from app.database import get_supabase, get_supabase_for_user
 from app.services.pdf_processor import extract_text
 
 logger = logging.getLogger(__name__)
@@ -10,8 +10,11 @@ logger = logging.getLogger(__name__)
 BUCKET_NAME = "documents"
 
 
-def download_and_extract_text(storage_path: str) -> str:
-    supabase = get_supabase()
+def download_and_extract_text(storage_path: str, user_token: str | None = None) -> str:
+    if user_token:
+        supabase = get_supabase_for_user(user_token)
+    else:
+        supabase = get_supabase()
     ext = Path(storage_path).suffix.lower() or ".pdf"
 
     try:

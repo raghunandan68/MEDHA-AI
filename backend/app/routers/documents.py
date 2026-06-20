@@ -2,7 +2,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Header
 from pydantic import BaseModel
 
-from app.database import get_supabase, get_user_id
+from app.database import get_supabase, get_supabase_for_user, get_user_id
 from app.models.document import DocumentOut, DocumentList
 from app.services.pdf_processor import save_upload, save_text, cleanup_file, ALL_SUPPORTED_EXTENSIONS
 from app.services.ai_service import generate_title
@@ -60,11 +60,13 @@ async def upload_document(file: UploadFile = File(...), authorization: str = Hea
     stored_name, local_path = save_upload(bytes_data, file.filename)
 
     supabase = get_supabase()
+    user_client = get_supabase_for_user(token)
     storage_path = f"{user_id}/{stored_name}"
     try:
-        supabase.storage.from_("documents").upload(storage_path, bytes_data)
-    except Exception:
-        pass
+        user_client.storage.from_("documents").upload(storage_path, bytes_data)
+    except Exception as e:
+        cleanup_file(local_path)
+        raise HTTPException(status_code=500, detail=f"Failed to upload file to storage: {e}")
 
     doc_data = {
         "user_id": user_id,
@@ -98,12 +100,14 @@ async def create_document_from_text(body: CreateTextDocIn, authorization: str = 
     stored_name, local_path = save_text(text, filename)
 
     supabase = get_supabase()
+    user_client = get_supabase_for_user(token)
     storage_path = f"{user_id}/{stored_name}"
     try:
         with open(local_path, "rb") as f:
-            supabase.storage.from_("documents").upload(storage_path, f.read())
-    except Exception:
-        pass
+            user_client.storage.from_("documents").upload(storage_path, f.read())
+    except Exception as e:
+        cleanup_file(local_path)
+        raise HTTPException(status_code=500, detail=f"Failed to upload file to storage: {e}")
 
     doc_data = {
         "user_id": user_id,
@@ -127,13 +131,14 @@ async def delete_document(doc_id: str, authorization: str = Header("")):
         raise HTTPException(status_code=401, detail="Not authenticated")
 
     supabase = get_supabase()
+    user_client = get_supabase_for_user(token)
     resp = supabase.table("documents").select("file_path").eq("id", doc_id).eq("user_id", user_id).execute()
     if not resp.data:
         raise HTTPException(status_code=404, detail="Document not found")
 
     supabase.table("documents").delete().eq("id", doc_id).eq("user_id", user_id).execute()
     try:
-        supabase.storage.from_("documents").remove([resp.data[0]["file_path"]])
+        user_client.storage.from_("documents").remove([resp.data[0]["file_path"]])
     except Exception:
         pass
 

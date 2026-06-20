@@ -47,7 +47,7 @@ async def generate_quizzes_for_doc(doc_id: str, count: int = 5, authorization: s
 
     doc = doc_resp.data[0]
     storage_path = doc["file_path"]
-    text = download_and_extract_text(storage_path)
+    text = download_and_extract_text(storage_path, user_token=token)
 
     fc_resp = supabase.table("flashcards").select("front").eq("document_id", doc_id).execute()
     exclude_questions = [c["front"] for c in fc_resp.data] if fc_resp.data else None
