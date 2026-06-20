@@ -348,7 +348,7 @@ def extract_text_from_pdf(file_path: str) -> str:
 
         image_texts = []
         images = extract_images_from_pdf(file_path)
-        for img_bytes in images[:10]:
+        for img_bytes in images[:5]:
             img_text = extract_text_from_image(img_bytes)
             if img_text and img_text.strip():
                 image_texts.append(img_text.strip())
@@ -356,7 +356,7 @@ def extract_text_from_pdf(file_path: str) -> str:
         if not has_text and not image_texts:
             logger.info("No embedded text found. Rendering pages for OCR...")
             page_images = render_pdf_pages_as_images(file_path, dpi=200)
-            for page_img in page_images[:15]:
+            for page_img in page_images[:5]:
                 page_ocr_text = extract_text_from_image(page_img)
                 if page_ocr_text and page_ocr_text.strip():
                     image_texts.append(page_ocr_text.strip())
