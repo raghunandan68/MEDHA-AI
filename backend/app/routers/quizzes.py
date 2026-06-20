@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Header
 from app.database import get_supabase, get_user_id
 from app.models.document import QuizOut, QuizList, QuizAttemptIn, QuizAttemptOut, QuizAttemptList
 from app.services.ai_service import generate_quiz
-from app.services.pdf_processor import extract_text, UPLOAD_DIR
+from app.services.storage import download_and_extract_text
 
 router = APIRouter(prefix="/api/quizzes", tags=["quizzes"])
 
@@ -46,9 +46,8 @@ async def generate_quizzes_for_doc(doc_id: str, count: int = 5, authorization: s
     supabase.table("quizzes").delete().eq("document_id", doc_id).execute()
 
     doc = doc_resp.data[0]
-    filename = doc["file_path"].split("/")[-1]
-    file_path = str(UPLOAD_DIR / filename)
-    text = extract_text(file_path)
+    storage_path = doc["file_path"]
+    text = download_and_extract_text(storage_path)
 
     fc_resp = supabase.table("flashcards").select("front").eq("document_id", doc_id).execute()
     exclude_questions = [c["front"] for c in fc_resp.data] if fc_resp.data else None

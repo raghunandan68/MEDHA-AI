@@ -30,6 +30,7 @@ export default function Chat() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [uploadedDocId, setUploadedDocId] = useState<string | null>(null);
@@ -125,6 +126,7 @@ export default function Chat() {
     if (!text) return;
     setInput("");
     setSending(true);
+    setSendError(null);
 
     try {
       const res = await api.post<{
@@ -159,8 +161,8 @@ export default function Chat() {
           ...prev,
         ];
       });
-    } catch {
-      // handle error
+    } catch (e: any) {
+      setSendError(e?.message || "Failed to send message. Please try again.");
     }
     setSending(false);
   };
@@ -324,6 +326,13 @@ export default function Chat() {
             </div>
           )}
 
+          {sendError && (
+            <div className="flex justify-center animate-fade-in-up">
+              <div className="glass-card rounded-xl px-4 py-2 border border-red-500/20 bg-red-500/5">
+                <p className="text-xs text-red-300">{sendError}</p>
+              </div>
+            </div>
+          )}
           {sending && (
             <div className="flex justify-start animate-fade-in-up">
               <div className="glass-card rounded-2xl rounded-tl-sm px-5 py-4 border-white/[0.04]">

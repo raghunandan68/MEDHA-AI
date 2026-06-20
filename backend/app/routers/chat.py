@@ -8,7 +8,7 @@ from app.models.chat import (
     ChatSendIn, ChatSendOut,
 )
 from app.services.ai_service import generate_chat_response
-from app.services.pdf_processor import extract_text, UPLOAD_DIR
+from app.services.storage import download_and_extract_text
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
@@ -90,9 +90,8 @@ async def send_message(body: ChatSendIn, authorization: str = Header("")):
         doc_resp = supabase.table("documents").select("*").eq("id", body.document_id).eq("user_id", user_id).execute()
         if doc_resp.data:
             doc = doc_resp.data[0]
-            filename = doc["file_path"].split("/")[-1]
-            file_path = str(UPLOAD_DIR / filename)
-            context = extract_text(file_path)
+            storage_path = doc["file_path"]
+            context = download_and_extract_text(storage_path)
     else:
         doc_resp = supabase.table("documents").select("*").eq("user_id", user_id).order("created_at", desc=True).limit(3).execute()
         if doc_resp.data:
@@ -100,9 +99,8 @@ async def send_message(body: ChatSendIn, authorization: str = Header("")):
             per_doc = max_total // len(doc_resp.data)
             context_parts = []
             for doc in doc_resp.data:
-                filename = doc["file_path"].split("/")[-1]
-                file_path = str(UPLOAD_DIR / filename)
-                doc_text = extract_text(file_path)
+                storage_path = doc["file_path"]
+                doc_text = download_and_extract_text(storage_path)
                 if doc_text:
                     context_parts.append(f"--- Document: {doc['filename']} ---\n{doc_text[:per_doc]}")
             context = "\n\n".join(context_parts)

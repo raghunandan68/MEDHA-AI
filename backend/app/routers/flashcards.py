@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Header
 
 from app.database import get_supabase, get_user_id
 from app.models.document import FlashcardOut, FlashcardList
-from app.services.pdf_processor import UPLOAD_DIR, extract_text
+from app.services.storage import download_and_extract_text
 from app.services.ai_service import generate_flashcards
 
 router = APIRouter(prefix="/api/flashcards", tags=["flashcards"])
@@ -54,10 +54,9 @@ async def generate_flashcards_for_doc(doc_id: str, authorization: str = Header("
         raise HTTPException(status_code=404, detail="Document not found")
 
     doc = doc_resp.data[0]
-    filename = doc["file_path"].split("/")[-1]
-    file_path = str(UPLOAD_DIR / filename)
+    storage_path = doc["file_path"]
 
-    text = extract_text(file_path)
+    text = download_and_extract_text(storage_path)
     count = _adaptive_count(text)
     supabase.table("flashcards").delete().eq("document_id", doc_id).execute()
 

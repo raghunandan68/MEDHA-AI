@@ -98,10 +98,17 @@ async def create_document_from_text(body: CreateTextDocIn, authorization: str = 
     stored_name, local_path = save_text(text, filename)
 
     supabase = get_supabase()
+    storage_path = f"{user_id}/{stored_name}"
+    try:
+        with open(local_path, "rb") as f:
+            supabase.storage.from_("documents").upload(storage_path, f.read())
+    except Exception:
+        pass
+
     doc_data = {
         "user_id": user_id,
         "filename": filename,
-        "file_path": stored_name,
+        "file_path": storage_path,
         "status": "ready",
     }
     resp = supabase.table("documents").insert(doc_data).execute()

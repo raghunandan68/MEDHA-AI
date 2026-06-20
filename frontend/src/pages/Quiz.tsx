@@ -76,16 +76,23 @@ export default function QuizPage() {
     });
   }, [documentId]);
 
+  const [error, setError] = useState<string | null>(null);
+
   const handleGenerate = async () => {
     setGenerating(true);
+    setError(null);
     try {
       const res = await api.post<{ quizzes: QuizType[] }>(
         `/api/quizzes/generate/${documentId}?count=${config.questionCount}`
       );
+      if (!res.quizzes || res.quizzes.length === 0) {
+        setError("No questions could be generated. Make sure your document is uploaded correctly.");
+        return;
+      }
       setQuizzes(res.quizzes);
       setStarted(true);
-    } catch {
-      // handle error
+    } catch (e: any) {
+      setError(e?.message || "Failed to generate quiz. Please try again.");
     }
     setGenerating(false);
   };
@@ -241,6 +248,12 @@ export default function QuizPage() {
                 <p className="text-sm text-slate-400">
                   {quizzes.length} existing questions found. Generate new ones or use existing.
                 </p>
+              </div>
+            )}
+
+            {error && (
+              <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-center">
+                <p className="text-sm text-red-300">{error}</p>
               </div>
             )}
 

@@ -10,6 +10,7 @@ export default function FlashcardsPage() {
   const [doc, setDoc] = useState<Document | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [flippedId, setFlippedId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -36,11 +37,16 @@ export default function FlashcardsPage() {
 
   const handleGenerate = async () => {
     setGenerating(true);
+    setError(null);
     try {
       const res = await api.post<{ flashcards: FlashCard[] }>(`/api/flashcards/generate/${documentId}`);
+      if (!res.flashcards || res.flashcards.length === 0) {
+        setError("No flashcards could be generated. Make sure your document is uploaded correctly.");
+        return;
+      }
       setFlashcards(res.flashcards);
-    } catch {
-      // handle error
+    } catch (e: any) {
+      setError(e?.message || "Failed to generate flashcards. Please try again.");
     }
     setGenerating(false);
   };
@@ -62,6 +68,9 @@ export default function FlashcardsPage() {
       <div className="glass-card flex flex-col items-center justify-center rounded-2xl py-16 animate-fade-in">
         <p className="text-lg font-medium text-slate-300">No flashcards yet</p>
         <p className="text-sm text-slate-500 mt-1">Generate flashcards from your document to start studying!</p>
+        {error && (
+          <p className="text-sm text-red-300 mt-3 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2">{error}</p>
+        )}
         <button
           onClick={handleGenerate}
           disabled={generating}
@@ -85,6 +94,9 @@ export default function FlashcardsPage() {
           </p>
         </div>
         <div className="flex gap-3">
+          {error && (
+            <p className="text-xs text-red-300 self-center">{error}</p>
+          )}
           <button
             onClick={handleGenerate}
             disabled={generating}
