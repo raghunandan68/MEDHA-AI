@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     supabase_anon_key: str = ""
     openai_api_key: str = ""
     groq_api_key: str = ""
+    openrouter_api_key: str = ""
     ai_model: str = "llama-3.3-70b-versatile"
     cors_origins: str = "http://localhost:5173"
 

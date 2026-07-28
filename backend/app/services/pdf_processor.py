@@ -92,29 +92,26 @@ def extract_text_from_image_with_tesseract(image_bytes: bytes) -> str:
 VISION_CAPABLE_MODELS = {
     "gpt-4o", "gpt-4o-mini", "gpt-4-vision-preview",
     "claude-3-opus", "claude-3-sonnet", "claude-3-haiku",
-    "meta-llama/llama-4-scout-17b-16e-instruct",
-    "qwen/qwen3.6-27b",
+    "google/gemma-4-31b-it:free",
+    "google/gemma-4-26b-a4b-it:free",
+    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
 }
 
 
 def extract_text_from_image_llm(image_bytes: bytes) -> str:
-    groq_key = settings.groq_api_key
+    openrouter_key = settings.openrouter_api_key
     openai_key = settings.openai_api_key
 
-    if groq_key:
-        model = settings.ai_model
-        if model not in VISION_CAPABLE_MODELS:
-            if "groq" in groq_key.lower() or groq_key.startswith("gsk_"):
-                model = "meta-llama/llama-4-scout-17b-16e-instruct"
-            else:
-                return ""
-        base_url = "https://api.groq.com/openai/v1"
-        api_key = groq_key
+    if openrouter_key and openrouter_key != "your-openrouter-api-key-here":
+        base_url = "https://openrouter.ai/api/v1"
+        api_key = openrouter_key
+        model = "google/gemma-4-31b-it:free"
     elif openai_key and openai_key != "sk-your-openai-api-key":
         base_url = None
         api_key = openai_key
         model = "gpt-4o-mini"
     else:
+        logger.warning("No OpenRouter or OpenAI API key configured for vision OCR")
         return ""
 
     try:
