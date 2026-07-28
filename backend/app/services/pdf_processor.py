@@ -100,10 +100,17 @@ VISION_CAPABLE_MODELS = {
 
 OPENROUTER_FREE_VISION_MODELS = [
     "google/gemma-4-31b-it:free",
-    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
     "google/gemma-4-26b-a4b-it:free",
+    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
     "baidu/qianfan-ocr-fast",
+    "qwen/qwen2.5-vl-72b-instruct:free",
+    "mistralai/mistral-small-3.1-24b-instruct:free",
 ]
+
+
+def _is_rate_limit_error(e: Exception) -> bool:
+    err_str = str(e).lower()
+    return "429" in err_str or "rate" in err_str or "rate-limited" in err_str or "too many requests" in err_str
 
 
 def extract_text_from_image_llm(image_bytes: bytes) -> str:
@@ -126,34 +133,49 @@ def extract_text_from_image_llm(image_bytes: bytes) -> str:
         from openai import OpenAI
         client = OpenAI(api_key=openrouter_key, base_url="https://openrouter.ai/api/v1", timeout=60.0)
 
+        max_retries_per_model = 2
+        base_delay = 3
+
         for i, model in enumerate(OPENROUTER_FREE_VISION_MODELS):
-            try:
-                logger.info(f"Trying OpenRouter vision model: {model}")
-                response = client.chat.completions.create(
-                    model=model,
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": [
-                                {"type": "text", "text": ocr_prompt},
-                                {
-                                    "type": "image_url",
-                                    "image_url": {"url": f"data:image/png;base64,{base64_image}"}
-                                }
-                            ]
-                        }
-                    ],
-                    max_tokens=4000
-                )
-                result = response.choices[0].message.content or ""
-                if result.strip():
-                    logger.info(f"OCR succeeded with model: {model}")
-                    return result
-            except Exception as e:
-                logger.warning(f"OpenRouter vision OCR failed with {model}: {e}")
-                if i < len(OPENROUTER_FREE_VISION_MODELS) - 1:
-                    time.sleep(2)
-                    continue
+            for attempt in range(max_retries_per_model):
+                try:
+                    logger.info(f"Trying OpenRouter vision model: {model} (attempt {attempt + 1}/{max_retries_per_model})")
+                    response = client.chat.completions.create(
+                        model=model,
+                        messages=[
+                            {
+                                "role": "user",
+                                "content": [
+                                    {"type": "text", "text": ocr_prompt},
+                                    {
+                                        "type": "image_url",
+                                        "image_url": {"url": f"data:image/png;base64,{base64_image}"}
+                                    }
+                                ]
+                            }
+                        ],
+                        max_tokens=4000
+                    )
+                    result = response.choices[0].message.content or ""
+                    if result.strip():
+                        logger.info(f"OCR succeeded with model: {model} on attempt {attempt + 1}")
+                        return result
+                    else:
+                        logger.warning(f"Model {model} returned empty response on attempt {attempt + 1}")
+                except Exception as e:
+                    if _is_rate_limit_error(e):
+                        delay = base_delay * (2 ** attempt) + (attempt * 2)
+                        logger.warning(f"Rate limited on {model} (attempt {attempt + 1}): {e}. Retrying in {delay}s...")
+                        time.sleep(delay)
+                        continue
+                    else:
+                        logger.warning(f"OpenRouter vision OCR failed with {model}: {e}")
+                        break
+
+            if i < len(OPENROUTER_FREE_VISION_MODELS) - 1:
+                time.sleep(1)
+
+        logger.error("All OpenRouter vision OCR models failed. No text extracted from image via LLM.")
         return ""
 
     elif openai_key and openai_key != "sk-your-openai-api-key":
@@ -186,20 +208,26 @@ def extract_text_from_image_llm(image_bytes: bytes) -> str:
 
 
 def extract_text_from_image(image_bytes: bytes) -> str:
+    logger.info("Starting image text extraction pipeline...")
+
     tesseract_text = extract_text_from_image_with_tesseract(image_bytes)
+    if tesseract_text and len(tesseract_text.strip()) > 20:
+        logger.info(f"Tesseract OCR succeeded: {len(tesseract_text)} chars extracted")
+        return tesseract_text
 
     llm_text = extract_text_from_image_llm(image_bytes)
-
     if llm_text and len(llm_text.strip()) > 20:
+        logger.info(f"LLM vision OCR succeeded: {len(llm_text)} chars extracted")
         return llm_text
 
-    if tesseract_text and len(tesseract_text.strip()) > 20:
-        return tesseract_text
-
-    if llm_text and llm_text.strip():
-        return llm_text
     if tesseract_text and tesseract_text.strip():
+        logger.info(f"Tesseract OCR partial result: {len(tesseract_text)} chars extracted")
         return tesseract_text
+    if llm_text and llm_text.strip():
+        logger.info(f"LLM vision OCR partial result: {len(llm_text)} chars extracted")
+        return llm_text
+
+    logger.error("Image text extraction failed: both Tesseract and LLM vision OCR returned no usable text.")
     return ""
 
 
@@ -384,10 +412,18 @@ def extract_text_from_pdf(file_path: str) -> str:
         if not has_text and not image_texts:
             logger.info("No embedded text found. Rendering pages for OCR...")
             page_images = render_pdf_pages_as_images(file_path, dpi=200)
-            for page_img in page_images[:5]:
+            logger.info(f"Rendered {len(page_images)} pages as images for OCR")
+            for idx, page_img in enumerate(page_images[:5]):
+                logger.info(f"Running OCR on rendered page {idx + 1}/{min(len(page_images), 5)}")
                 page_ocr_text = extract_text_from_image(page_img)
                 if page_ocr_text and page_ocr_text.strip():
                     image_texts.append(page_ocr_text.strip())
+                    logger.info(f"Page {idx + 1} OCR succeeded: {len(page_ocr_text)} chars")
+                else:
+                    logger.warning(f"Page {idx + 1} OCR returned no text")
+
+        if not has_text and not image_texts:
+            logger.error(f"All OCR methods failed for PDF: {file_path}. No text could be extracted.")
 
         if image_texts:
             combined_image_text = "\n\n".join(image_texts)

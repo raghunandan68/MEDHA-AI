@@ -42,6 +42,7 @@ def _call_llm(prompt: str, response_format: dict | None = None, system: str | No
 
 def generate_flashcards(text: str, count: int = 5) -> list[dict]:
     if not _has_real_content(text):
+        logger.warning(f"No real content found in text (length={len(text)}). Falling back to mock flashcards.")
         return _mock_flashcards(text, count)
 
     total_chars = min(10000, max(3000, count * 500))

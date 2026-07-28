@@ -16,9 +16,11 @@ def download_and_extract_text(storage_path: str, user_token: str | None = None) 
     else:
         supabase = get_supabase()
     ext = Path(storage_path).suffix.lower() or ".pdf"
+    logger.info(f"Downloading file from storage: {storage_path} (ext={ext})")
 
     try:
         file_bytes = supabase.storage.from_(BUCKET_NAME).download(storage_path)
+        logger.info(f"Downloaded {len(file_bytes)} bytes from storage")
     except Exception as e:
         logger.error(f"Failed to download file from storage ({storage_path}): {e}")
         return f"Error: Could not download document from storage."
@@ -29,6 +31,7 @@ def download_and_extract_text(storage_path: str, user_token: str | None = None) 
 
     try:
         text = extract_text(tmp_path)
+        logger.info(f"Extracted {len(text)} chars from file {storage_path}")
         return text
     except Exception as e:
         logger.error(f"Failed to extract text from file ({storage_path}): {e}")

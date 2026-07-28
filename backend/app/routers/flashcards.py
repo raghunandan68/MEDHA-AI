@@ -1,5 +1,6 @@
 import math
 import uuid
+import logging
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Header
 
@@ -7,6 +8,8 @@ from app.database import get_supabase, get_user_id
 from app.models.document import FlashcardOut, FlashcardList
 from app.services.storage import download_and_extract_text
 from app.services.ai_service import generate_flashcards
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/flashcards", tags=["flashcards"])
 
@@ -55,12 +58,18 @@ async def generate_flashcards_for_doc(doc_id: str, authorization: str = Header("
 
     doc = doc_resp.data[0]
     storage_path = doc["file_path"]
+    logger.info(f"Generating flashcards for doc {doc_id}, storage_path={storage_path}")
 
     text = download_and_extract_text(storage_path, user_token=token)
+    logger.info(f"Extracted text length: {len(text)} chars. First 200 chars: {text[:200]}")
+
     count = _adaptive_count(text)
+    logger.info(f"Adaptive flashcard count: {count} (based on text length {len(text)})")
+
     supabase.table("flashcards").delete().eq("document_id", doc_id).execute()
 
     cards_data = generate_flashcards(text, count=count)
+    logger.info(f"Generated {len(cards_data)} flashcards from AI service")
 
     created_at = datetime.now(timezone.utc).isoformat()
     inserted = []
@@ -76,4 +85,5 @@ async def generate_flashcards_for_doc(doc_id: str, authorization: str = Header("
         if resp.data:
             inserted.append(FlashcardOut(**resp.data[0]))
 
+    logger.info(f"Inserted {len(inserted)} flashcards into database for doc {doc_id}")
     return FlashcardList(flashcards=inserted)
