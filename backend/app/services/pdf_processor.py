@@ -98,59 +98,90 @@ VISION_CAPABLE_MODELS = {
 }
 
 
+OPENROUTER_FREE_VISION_MODELS = [
+    "google/gemma-4-31b-it:free",
+    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+    "google/gemma-4-26b-a4b-it:free",
+    "baidu/qianfan-ocr-fast",
+]
+
+
 def extract_text_from_image_llm(image_bytes: bytes) -> str:
+    import time
     openrouter_key = settings.openrouter_api_key
     openai_key = settings.openai_api_key
 
+    processed = _preprocess_image_for_ocr(image_bytes)
+    base64_image = base64.b64encode(processed).decode("utf-8")
+
+    ocr_prompt = (
+        "You are an expert OCR assistant. Extract ALL visible text from this image with maximum accuracy. "
+        "Preserve the original structure, formatting, paragraphs, bullet points, headers, and tables as closely as possible. "
+        "Return ONLY the extracted text content. Do not add any commentary, descriptions, or explanations. "
+        "If the image contains a table, reproduce it in a structured format. "
+        "If the image contains mathematical expressions, write them in plain text form."
+    )
+
     if openrouter_key and openrouter_key != "your-openrouter-api-key-here":
-        base_url = "https://openrouter.ai/api/v1"
-        api_key = openrouter_key
-        model = "google/gemma-4-31b-it:free"
-    elif openai_key and openai_key != "sk-your-openai-api-key":
-        base_url = None
-        api_key = openai_key
-        model = "gpt-4o-mini"
-    else:
-        logger.warning("No OpenRouter or OpenAI API key configured for vision OCR")
+        from openai import OpenAI
+        client = OpenAI(api_key=openrouter_key, base_url="https://openrouter.ai/api/v1", timeout=60.0)
+
+        for i, model in enumerate(OPENROUTER_FREE_VISION_MODELS):
+            try:
+                logger.info(f"Trying OpenRouter vision model: {model}")
+                response = client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": ocr_prompt},
+                                {
+                                    "type": "image_url",
+                                    "image_url": {"url": f"data:image/png;base64,{base64_image}"}
+                                }
+                            ]
+                        }
+                    ],
+                    max_tokens=4000
+                )
+                result = response.choices[0].message.content or ""
+                if result.strip():
+                    logger.info(f"OCR succeeded with model: {model}")
+                    return result
+            except Exception as e:
+                logger.warning(f"OpenRouter vision OCR failed with {model}: {e}")
+                if i < len(OPENROUTER_FREE_VISION_MODELS) - 1:
+                    time.sleep(2)
+                    continue
         return ""
 
-    try:
-        from openai import OpenAI
-        client = OpenAI(api_key=api_key, base_url=base_url, timeout=60.0)
-
-        processed = _preprocess_image_for_ocr(image_bytes)
-        base64_image = base64.b64encode(processed).decode("utf-8")
-
-        response = client.chat.completions.create(
-            model=model,
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": (
-                                "You are an expert OCR assistant. Extract ALL visible text from this image with maximum accuracy. "
-                                "Preserve the original structure, formatting, paragraphs, bullet points, headers, and tables as closely as possible. "
-                                "Return ONLY the extracted text content. Do not add any commentary, descriptions, or explanations. "
-                                "If the image contains a table, reproduce it in a structured format. "
-                                "If the image contains mathematical expressions, write them in plain text form."
-                            )
-                        },
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/png;base64,{base64_image}"
+    elif openai_key and openai_key != "sk-your-openai-api-key":
+        try:
+            from openai import OpenAI
+            client = OpenAI(api_key=openai_key, timeout=60.0)
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": ocr_prompt},
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": f"data:image/png;base64,{base64_image}"}
                             }
-                        }
-                    ]
-                }
-            ],
-            max_tokens=4000
-        )
-        return response.choices[0].message.content or ""
-    except Exception as e:
-        logger.warning(f"LLM vision OCR failed: {e}")
+                        ]
+                    }
+                ],
+                max_tokens=4000
+            )
+            return response.choices[0].message.content or ""
+        except Exception as e:
+            logger.warning(f"OpenAI vision OCR failed: {e}")
+            return ""
+    else:
+        logger.warning("No OpenRouter or OpenAI API key configured for vision OCR")
         return ""
 
 
