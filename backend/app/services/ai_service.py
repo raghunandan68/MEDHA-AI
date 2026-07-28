@@ -25,7 +25,7 @@ def _call_llm(prompt: str, response_format: dict | None = None, system: str | No
 
     try:
         from openai import OpenAI
-        client = OpenAI(api_key=api_key, base_url=base_url, timeout=120.0)
+        client = OpenAI(api_key=api_key, base_url=base_url, timeout=60.0, max_retries=0)
         messages = []
         if system:
             messages.append({"role": "system", "content": system})

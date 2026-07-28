@@ -1,5 +1,6 @@
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 const TOKEN_KEY = "medha_auth_token";
+const DEFAULT_TIMEOUT = 120_000;
 
 class ApiError extends Error {
   status: number;
@@ -50,7 +51,8 @@ export function clearToken() {
 
 async function request<T>(
   path: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  timeoutMs: number = DEFAULT_TIMEOUT
 ): Promise<T> {
   const token = getToken();
   if (token && isTokenExpired(token)) {
@@ -68,22 +70,35 @@ async function request<T>(
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const resp = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers,
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-  if (!resp.ok) {
-    if (resp.status === 401 && token) {
-      clearToken();
-      localStorage.removeItem("medha_user");
-      onUnauthorized?.();
+  try {
+    const resp = await fetch(`${API_URL}${path}`, {
+      ...options,
+      headers,
+      signal: controller.signal,
+    });
+
+    if (!resp.ok) {
+      if (resp.status === 401 && token) {
+        clearToken();
+        localStorage.removeItem("medha_user");
+        onUnauthorized?.();
+      }
+      const body = await resp.json().catch(() => ({ detail: resp.statusText }));
+      throw new ApiError(body.detail ?? "Request failed", resp.status);
     }
-    const body = await resp.json().catch(() => ({ detail: resp.statusText }));
-    throw new ApiError(body.detail ?? "Request failed", resp.status);
-  }
 
-  return resp.json();
+    return resp.json();
+  } catch (e: any) {
+    if (e?.name === "AbortError") {
+      throw new ApiError("Request timed out. Please try again.", 408);
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export const api = {
@@ -93,6 +108,15 @@ export const api = {
       method: "POST",
       body: body ? JSON.stringify(body) : undefined,
     }),
+  postLong: <T>(path: string, body?: unknown, timeoutMs: number = 180_000) =>
+    request<T>(
+      path,
+      {
+        method: "POST",
+        body: body ? JSON.stringify(body) : undefined,
+      },
+      timeoutMs
+    ),
   put: <T>(path: string, body?: unknown) =>
     request<T>(path, {
       method: "PUT",
@@ -111,20 +135,34 @@ export const api = {
     formData.append("file", file);
     const headers: Record<string, string> = {};
     if (token) headers["Authorization"] = `Bearer ${token}`;
-    const resp = await fetch(`${API_URL}${path}`, {
-      method: "POST",
-      headers,
-      body: formData,
-    });
-    if (!resp.ok) {
-      if (resp.status === 401 && token) {
-        clearToken();
-        localStorage.removeItem("medha_user");
-        onUnauthorized?.();
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 180_000);
+
+    try {
+      const resp = await fetch(`${API_URL}${path}`, {
+        method: "POST",
+        headers,
+        body: formData,
+        signal: controller.signal,
+      });
+      if (!resp.ok) {
+        if (resp.status === 401 && token) {
+          clearToken();
+          localStorage.removeItem("medha_user");
+          onUnauthorized?.();
+        }
+        const body = await resp.json().catch(() => ({ detail: resp.statusText }));
+        throw new ApiError(body.detail ?? "Upload failed", resp.status);
       }
-      const body = await resp.json().catch(() => ({ detail: resp.statusText }));
-      throw new ApiError(body.detail ?? "Upload failed", resp.status);
+      return resp.json();
+    } catch (e: any) {
+      if (e?.name === "AbortError") {
+        throw new ApiError("Upload timed out. Please try again.", 408);
+      }
+      throw e;
+    } finally {
+      clearTimeout(timer);
     }
-    return resp.json();
   },
 };

@@ -39,7 +39,7 @@ export default function FlashcardsPage() {
     setGenerating(true);
     setError(null);
     try {
-      const res = await api.post<{ flashcards: FlashCard[] }>(`/api/flashcards/generate/${documentId}`);
+      const res = await api.postLong<{ flashcards: FlashCard[] }>(`/api/flashcards/generate/${documentId}`);
       if (!res.flashcards || res.flashcards.length === 0) {
         setError("No flashcards could be generated. Make sure your document is uploaded correctly.");
         return;

@@ -82,7 +82,7 @@ export default function QuizPage() {
     setGenerating(true);
     setError(null);
     try {
-      const res = await api.post<{ quizzes: QuizType[] }>(
+      const res = await api.postLong<{ quizzes: QuizType[] }>(
         `/api/quizzes/generate/${documentId}?count=${config.questionCount}`
       );
       if (!res.quizzes || res.quizzes.length === 0) {

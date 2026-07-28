@@ -131,49 +131,43 @@ def extract_text_from_image_llm(image_bytes: bytes) -> str:
 
     if openrouter_key and openrouter_key != "your-openrouter-api-key-here":
         from openai import OpenAI
-        client = OpenAI(api_key=openrouter_key, base_url="https://openrouter.ai/api/v1", timeout=60.0)
-
-        max_retries_per_model = 2
-        base_delay = 3
+        client = OpenAI(
+            api_key=openrouter_key,
+            base_url="https://openrouter.ai/api/v1",
+            timeout=25.0,
+            max_retries=0,
+        )
 
         for i, model in enumerate(OPENROUTER_FREE_VISION_MODELS):
-            for attempt in range(max_retries_per_model):
-                try:
-                    logger.info(f"Trying OpenRouter vision model: {model} (attempt {attempt + 1}/{max_retries_per_model})")
-                    response = client.chat.completions.create(
-                        model=model,
-                        messages=[
-                            {
-                                "role": "user",
-                                "content": [
-                                    {"type": "text", "text": ocr_prompt},
-                                    {
-                                        "type": "image_url",
-                                        "image_url": {"url": f"data:image/png;base64,{base64_image}"}
-                                    }
-                                ]
-                            }
-                        ],
-                        max_tokens=4000
-                    )
-                    result = response.choices[0].message.content or ""
-                    if result.strip():
-                        logger.info(f"OCR succeeded with model: {model} on attempt {attempt + 1}")
-                        return result
-                    else:
-                        logger.warning(f"Model {model} returned empty response on attempt {attempt + 1}")
-                except Exception as e:
-                    if _is_rate_limit_error(e):
-                        delay = base_delay * (2 ** attempt) + (attempt * 2)
-                        logger.warning(f"Rate limited on {model} (attempt {attempt + 1}): {e}. Retrying in {delay}s...")
-                        time.sleep(delay)
-                        continue
-                    else:
-                        logger.warning(f"OpenRouter vision OCR failed with {model}: {e}")
-                        break
-
-            if i < len(OPENROUTER_FREE_VISION_MODELS) - 1:
-                time.sleep(1)
+            try:
+                logger.info(f"Trying OpenRouter vision model: {model}")
+                response = client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": ocr_prompt},
+                                {
+                                    "type": "image_url",
+                                    "image_url": {"url": f"data:image/png;base64,{base64_image}"}
+                                }
+                            ]
+                        }
+                    ],
+                    max_tokens=4000
+                )
+                result = response.choices[0].message.content or ""
+                if result.strip():
+                    logger.info(f"OCR succeeded with model: {model}")
+                    return result
+                else:
+                    logger.warning(f"Model {model} returned empty response")
+            except Exception as e:
+                logger.warning(f"OpenRouter vision OCR failed with {model}: {e}")
+                if _is_rate_limit_error(e) and i < len(OPENROUTER_FREE_VISION_MODELS) - 1:
+                    time.sleep(2)
+                continue
 
         logger.error("All OpenRouter vision OCR models failed. No text extracted from image via LLM.")
         return ""
