@@ -2,6 +2,7 @@ import { Outlet, useLocation } from "react-router-dom";
 import Navbar from "./Navbar";
 import Sidebar from "./Sidebar";
 import { useAuth } from "../lib/AuthContext";
+import { DocumentProvider } from "../lib/DocumentContext";
 
 function LoadingScreen() {
   return (
@@ -65,10 +66,12 @@ export default function Layout() {
       </div>
 
       <div className="relative z-10 flex w-full">
-        <Sidebar />
-        <main className="flex-1 min-h-screen overflow-y-auto px-8 py-8">
-          <Outlet context={{ user }} />
-        </main>
+        <DocumentProvider>
+          <Sidebar />
+          <main className="flex-1 min-h-screen overflow-y-auto px-8 py-8">
+            <Outlet context={{ user }} />
+          </main>
+        </DocumentProvider>
       </div>
     </div>
   );

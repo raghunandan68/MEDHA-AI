@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link, useOutletContext } from "react-router-dom";
 import { api } from "../lib/api";
+import { useDocuments } from "../lib/DocumentContext";
 import type { User, Document, QuizAttempt } from "../types";
 
 export default function Dashboard() {
   const { user } = useOutletContext<{ user: User }>();
-  const [documents, setDocuments] = useState<Document[]>([]);
+  const { documents: ctxDocuments, addDocument, removeDocument } = useDocuments();
   const [attempts, setAttempts] = useState<(QuizAttempt & { document_name: string })[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -16,14 +17,10 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [docsRes, analyticsRes] = await Promise.all([
-          api.get<{ documents: Document[] }>("/api/documents"),
-          api.get<{ recent_attempts: (QuizAttempt & { document_name: string })[] }>("/api/analytics/overview"),
-        ]);
-        setDocuments(docsRes.documents.slice(0, 5));
+        const analyticsRes = await api.get<{ recent_attempts: (QuizAttempt & { document_name: string })[] }>("/api/analytics/overview");
         setAttempts(analyticsRes.recent_attempts ?? []);
       } catch {
-        // silently handle - user may have no documents yet
+        // silently handle
       }
       setLoading(false);
     };
@@ -36,7 +33,7 @@ export default function Dashboard() {
     setUploading(true);
     try {
       const doc = await api.upload<Document>("/api/documents/upload", file);
-      setDocuments(prev => [doc, ...prev]);
+      addDocument(doc);
     } catch {
       // handle error
     }
@@ -49,7 +46,7 @@ export default function Dashboard() {
     if (!confirm("Delete this document?")) return;
     try {
       await api.delete(`/api/documents/${docId}`);
-      setDocuments(prev => prev.filter(d => d.id !== docId));
+      removeDocument(docId);
     } catch {
       // handle error
     }
@@ -61,7 +58,7 @@ export default function Dashboard() {
     setPasting(true);
     try {
       const doc = await api.post<Document>("/api/documents/from-text", { text });
-      setDocuments(prev => [doc, ...prev]);
+      addDocument(doc);
       setShowPaste(false);
       setPasteText("");
     } catch {
@@ -69,6 +66,8 @@ export default function Dashboard() {
     }
     setPasting(false);
   };
+
+  const documents = ctxDocuments.slice(0, 5);
 
   if (loading) {
     return (

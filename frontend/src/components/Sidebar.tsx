@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext";
-import { useEffect, useState } from "react";
-import { api } from "../lib/api";
+import { useState } from "react";
+import { useDocuments } from "../lib/DocumentContext";
 import type { Document } from "../types";
 
 // ── SVG Icon Components ──────────────────────────────────────────────────────
@@ -101,14 +101,8 @@ export default function Sidebar() {
   const { logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [recentDocs, setRecentDocs] = useState<Document[]>([]);
+  const { documents: recentDocs } = useDocuments();
   const [showAllRecent, setShowAllRecent] = useState(false);
-
-  useEffect(() => {
-    api.get<{ documents: Document[] }>("/api/documents")
-      .then((res) => setRecentDocs(res.documents.slice(0, 6)))
-      .catch(() => {});
-  }, []);
 
   const handleLogout = async () => {
     await logout();
@@ -124,7 +118,7 @@ export default function Sidebar() {
     { label: "Quiz History",  path: "/history",    Icon: IconHistory   },
   ];
 
-  const visibleDocs = showAllRecent ? recentDocs : recentDocs.slice(0, 4);
+  const visibleDocs = showAllRecent ? recentDocs.slice(0, 6) : recentDocs.slice(0, 4);
 
   return (
     <aside
