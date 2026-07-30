@@ -213,14 +213,6 @@ export default function Home() {
         </div>
 
         <div className="relative mx-auto max-w-7xl px-4 py-32 text-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-indigo-400/30 bg-indigo-500/10 px-4 py-1.5 text-sm text-indigo-300 backdrop-blur-sm mb-8 animate-scale-in">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-green-400" />
-            </span>
-            AI-Powered Learning Platform
-          </div>
-
           <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-extrabold tracking-tight leading-none mb-6 animate-slide-up">
             <span className="text-white">Learn Smarter</span>
             <br />
@@ -252,20 +244,6 @@ export default function Home() {
             </Link>
           </div>
 
-          {/* Stats */}
-          <div className="mt-20 grid grid-cols-2 md:grid-cols-4 gap-8 max-w-3xl mx-auto animate-fade-in-up animate-delay-400">
-            {[
-              { value: "10K+", label: "Students" },
-              { value: "50K+", label: "Flashcards" },
-              { value: "95%", label: "Satisfaction" },
-              { value: "5min", label: "Setup Time" },
-            ].map((stat, i) => (
-              <div key={i} className="text-center">
-                <p className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">{stat.value}</p>
-                <p className="text-sm text-slate-500 mt-1">{stat.label}</p>
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 
