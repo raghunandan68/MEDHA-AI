@@ -72,8 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return null;
     } catch (err: unknown) {
       const e = err as { status?: number; message?: string };
-      if (e.message) return e.message;
-      return "Invalid login credentials. Please check your email and password.";
+      return (e.message && e.message.trim()) || "Invalid login credentials. Please check your email and password.";
     } finally {
       setLoading(false);
     }
@@ -91,8 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return null;
     } catch (err: unknown) {
       const e = err as { status?: number; message?: string };
-      if (e.message) return e.message;
-      return "Registration failed. Please try again.";
+      return (e.message && e.message.trim()) || "Registration failed. Please try again.";
     } finally {
       setLoading(false);
     }

@@ -9,11 +9,14 @@ class Settings(BaseSettings):
     groq_api_key: str = ""
     openrouter_api_key: str = ""
     ai_model: str = "llama-3.3-70b-versatile"
-    cors_origins: str = "http://localhost:5173"
+    cors_origins: str = "*"
 
     @property
     def allowed_origins(self) -> list[str]:
-        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+        raw = self.cors_origins.strip()
+        if raw == "*":
+            return ["*"]
+        return [o.strip() for o in raw.split(",") if o.strip()]
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 

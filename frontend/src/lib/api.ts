@@ -87,8 +87,12 @@ async function request<T>(
         localStorage.removeItem("medha_user");
         onUnauthorized?.();
       }
-      const body = await resp.json().catch(() => ({ detail: resp.statusText }));
-      throw new ApiError(body.detail ?? "Request failed", resp.status);
+      let detail = resp.statusText || "Request failed";
+      try {
+        const body = await resp.json();
+        if (body?.detail) detail = body.detail;
+      } catch {}
+      throw new ApiError(detail, resp.status);
     }
 
     return resp.json();

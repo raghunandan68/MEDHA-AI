@@ -16,6 +16,6 @@ services:
       - key: AI_MODEL
         value: llama-3.3-70b-versatile
       - key: CORS_ORIGINS
-        sync: false
+        value: "*"
     healthCheckPath: /api/health
     autoDeploy: true
