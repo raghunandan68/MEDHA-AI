@@ -28,7 +28,7 @@ export default function Login() {
         setGoogleLoading(false);
       }
     } catch {
-      setError("Failed to sign in with Google");
+      setError("Failed to sign in with GitHub. Please try again.");
       setGoogleLoading(false);
     }
   };

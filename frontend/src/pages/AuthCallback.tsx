@@ -1,17 +1,26 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { setToken } from "../lib/api";
 
 export default function AuthCallback() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [error, setError] = useState("");
 
   useEffect(() => {
     const handleSession = async () => {
+      const oauthError = searchParams.get("error");
+      const errorDescription = searchParams.get("error_description");
+
+      if (oauthError) {
+        setError(errorDescription || "GitHub sign-in was cancelled or failed. Please try again.");
+        return;
+      }
+
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       if (sessionError) {
-        setError(sessionError.message);
+        setError("Failed to complete sign-in. Please try again.");
         return;
       }
       if (session) {
@@ -30,18 +39,20 @@ export default function AuthCallback() {
       }
     };
     handleSession();
-  }, []);
+  }, [searchParams]);
 
   if (error) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
-        <div className="text-center">
-          <p className="text-red-400 mb-4">{error}</p>
+        <div className="text-center max-w-md mx-auto px-6">
+          <div className="rounded-xl bg-red-500/10 border border-red-500/20 px-6 py-4 mb-6">
+            <p className="text-red-300 text-sm">{error}</p>
+          </div>
           <button
             onClick={() => navigate("/login")}
-            className="text-violet-400 hover:underline"
+            className="bg-medha-button text-white rounded-xl px-6 py-3 text-sm font-bold hover:opacity-95 transition-all"
           >
-            Back to login
+            Back to Login
           </button>
         </div>
       </div>

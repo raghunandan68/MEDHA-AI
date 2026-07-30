@@ -55,7 +55,8 @@ async function request<T>(
   timeoutMs: number = DEFAULT_TIMEOUT
 ): Promise<T> {
   const token = getToken();
-  if (token && isTokenExpired(token)) {
+  const isAuthEndpoint = path.includes("/api/auth/signin") || path.includes("/api/auth/signup");
+  if (token && isTokenExpired(token) && !isAuthEndpoint) {
     clearToken();
     localStorage.removeItem("medha_user");
     onUnauthorized?.();
@@ -66,7 +67,7 @@ async function request<T>(
     "Content-Type": "application/json",
     ...(options.headers as Record<string, string>),
   };
-  if (token) {
+  if (token && !isAuthEndpoint) {
     headers["Authorization"] = `Bearer ${token}`;
   }
 
@@ -81,7 +82,7 @@ async function request<T>(
     });
 
     if (!resp.ok) {
-      if (resp.status === 401 && token) {
+      if (resp.status === 401 && token && !isAuthEndpoint) {
         clearToken();
         localStorage.removeItem("medha_user");
         onUnauthorized?.();

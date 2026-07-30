@@ -37,7 +37,7 @@ export default function Register() {
         setGoogleLoading(false);
       }
     } catch {
-      setError("Failed to sign in with Google");
+      setError("Failed to sign in with GitHub. Please try again.");
       setGoogleLoading(false);
     }
   };
@@ -268,7 +268,7 @@ export default function Register() {
               />
             </div>
             
-<div>
+            <div>
               <label htmlFor="password" className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Password</label>
               <div className="relative">
                 <input
@@ -295,6 +295,30 @@ export default function Register() {
                   )}
                 </button>
               </div>
+              {password.length > 0 && (
+                <div className="mt-2">
+                  <div className="flex gap-1 mb-1">
+                    {[1, 2, 3, 4, 5, 6].map((i) => (
+                      <div
+                        key={i}
+                        className={`h-1 flex-1 rounded-full transition-all ${
+                          i <= passwordStrength.score
+                            ? passwordStrength.score <= 2
+                              ? "bg-red-500"
+                              : passwordStrength.score <= 4
+                              ? "bg-yellow-500"
+                              : "bg-green-500"
+                            : "bg-white/10"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <p className={`text-xs ${passwordStrength.color}`}>
+                    {passwordStrength.label} password
+                    {passwordStrength.score <= 2 && " — add uppercase, numbers, or symbols"}
+                  </p>
+                </div>
+              )}
             </div>
 
             <div>

@@ -17,28 +17,51 @@ async def signup(body: SignUpIn):
         raise HTTPException(status_code=400, detail="Passwords do not match")
     
     supabase = get_supabase()
-    resp = supabase.auth.sign_up({
-        "email": body.email,
-        "password": body.password,
-        "options": {"data": {"name": body.name}, "email_confirm": True},
-    })
-    if resp.user:
-        return AuthOut(
-            user_id=resp.user.id,
-            email=resp.user.email or body.email,
-            name=body.name,
-            access_token=resp.session.access_token if resp.session else "",
-        )
-    raise HTTPException(status_code=400, detail="Signup failed")
+    try:
+        resp = supabase.auth.sign_up({
+            "email": body.email,
+            "password": body.password,
+            "options": {"data": {"name": body.name}, "email_confirm": True},
+        })
+        if resp.user:
+            return AuthOut(
+                user_id=resp.user.id,
+                email=resp.user.email or body.email,
+                name=body.name,
+                access_token=resp.session.access_token if resp.session else "",
+            )
+        raise HTTPException(status_code=400, detail="Signup failed. Please try again.")
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_msg = str(e).lower()
+        if "already" in error_msg or "exists" in error_msg or "registered" in error_msg:
+            raise HTTPException(status_code=400, detail="An account with this email already exists. Please login instead.")
+        raise HTTPException(status_code=400, detail="Signup failed. Please try again.")
 
 
 @router.post("/signin", response_model=AuthOut | AuthError)
 async def signin(body: SignInIn):
     supabase = get_supabase()
 
-    resp = supabase.auth.sign_in_with_password(
-        {"email": body.email, "password": body.password}
-    )
+    try:
+        resp = supabase.auth.sign_in_with_password(
+            {"email": body.email, "password": body.password}
+        )
+    except Exception as e:
+        error_msg = str(e).lower()
+        if "not found" in error_msg or "invalid" in error_msg or "credential" in error_msg:
+            user_exists = await _user_exists_by_email(body.email)
+            if not user_exists:
+                raise HTTPException(
+                    status_code=401,
+                    detail="Invalid login credentials. Please check your email and password.",
+                )
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid login credentials. Please check your email and password.",
+            )
+        raise HTTPException(status_code=401, detail="Invalid login credentials. Please check your email and password.")
 
     if resp.user and resp.session:
         name = resp.user.user_metadata.get("name", "")
@@ -53,11 +76,11 @@ async def signin(body: SignInIn):
     if not user_exists:
         raise HTTPException(
             status_code=401,
-            detail="You are not registered. Please create an account.",
+            detail="Invalid login credentials. Please check your email and password.",
         )
     raise HTTPException(
         status_code=401,
-        detail="Invalid email or password.",
+        detail="Invalid login credentials. Please check your email and password.",
     )
 
 
