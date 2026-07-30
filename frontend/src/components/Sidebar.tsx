@@ -103,8 +103,10 @@ export default function Sidebar() {
   const location = useLocation();
   const { documents: recentDocs } = useDocuments();
   const [showAllRecent, setShowAllRecent] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const handleLogout = async () => {
+    setShowLogoutModal(false);
     await logout();
     navigate("/");
   };
@@ -121,9 +123,9 @@ export default function Sidebar() {
   const visibleDocs = showAllRecent ? recentDocs.slice(0, 6) : recentDocs.slice(0, 4);
 
   return (
+    <>
     <aside
-      className="w-64 flex flex-col min-h-screen text-slate-300 border-r border-white/5"
-      style={{ background: "linear-gradient(180deg, #0d0b1e 0%, #100d22 100%)" }}
+      className="w-64 flex flex-col min-h-screen text-slate-300 border-r border-white/5 bg-medha-sidebar"
     >
       {/* ── Logo ── */}
       <div className="flex items-center gap-2.5 px-5 pt-5 pb-4">
@@ -230,7 +232,7 @@ export default function Sidebar() {
         </Link>
 
         <button
-          onClick={handleLogout}
+          onClick={() => setShowLogoutModal(true)}
           className="flex w-full items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-red-400 hover:bg-red-500/6 transition-all duration-150 text-left"
         >
           <span className="text-slate-500">
@@ -240,5 +242,34 @@ export default function Sidebar() {
         </button>
       </div>
     </aside>
+
+    {showLogoutModal && (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60" onClick={() => setShowLogoutModal(false)}>
+        <div className="bg-medha-card border border-violet-500/20 rounded-2xl p-6 w-full max-w-sm shadow-2xl mx-4" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-500/10">
+              <IconLogout />
+            </div>
+            <h3 className="text-base font-semibold text-white">Confirm Logout</h3>
+          </div>
+          <p className="text-sm text-slate-400 mb-6">Are you sure you want to logout?</p>
+          <div className="flex gap-3 justify-end">
+            <button
+              onClick={() => setShowLogoutModal(false)}
+              className="px-4 py-2 rounded-xl text-sm font-medium text-slate-300 border border-white/10 hover:bg-white/5 transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleLogout}
+              className="px-4 py-2 rounded-xl text-sm font-medium text-white bg-red-500 hover:bg-red-600 transition-all"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

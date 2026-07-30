@@ -1,7 +1,19 @@
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useOutletContext, Link } from "react-router-dom";
 import { api } from "../lib/api";
 import type { User, QuizAttempt } from "../types";
+
+function useTheme() {
+  const [theme, setTheme] = useState(() => document.documentElement.getAttribute("data-theme") || "dark");
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setTheme(document.documentElement.getAttribute("data-theme") || "dark");
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => observer.disconnect();
+  }, []);
+  return theme;
+}
 
 interface TopicPerformance {
   topic: string;
@@ -23,7 +35,7 @@ interface AnalyticsData {
 /* ── Radar Chart ────────────────────────────────────────────── */
 interface RadarPoint { label: string; value: number; }
 
-function RadarChart({ points }: { points: RadarPoint[] }) {
+function RadarChart({ points, theme }: { points: RadarPoint[]; theme: string }) {
   const size = 260;
   const cx = size / 2;
   const cy = size / 2;
@@ -37,8 +49,8 @@ function RadarChart({ points }: { points: RadarPoint[] }) {
     y: cy + r * Math.sin(angle),
   });
 
-  const gridColor = "rgba(255,255,255,0.08)";
-  const axisColor = "rgba(255,255,255,0.12)";
+  const gridColor = theme === "light" ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.08)";
+  const axisColor = theme === "light" ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.12)";
 
   /* grid polygons */
   const gridPolygons = Array.from({ length: levels }, (_, lvl) => {
@@ -67,7 +79,7 @@ function RadarChart({ points }: { points: RadarPoint[] }) {
   const dots = points.map((p, i) => {
     const r = (p.value / 100) * maxR;
     const { x, y } = polarToCart(r, angleFor(i));
-    return <circle key={i} cx={x} cy={y} r="3.5" fill="#a855f7" stroke="#fff" strokeWidth="1" />;
+    return <circle key={i} cx={x} cy={y} r="3.5" fill="#a855f7" stroke={theme === "light" ? "#fff" : "#fff"} strokeWidth="1" />;
   });
 
   /* labels */
@@ -84,7 +96,7 @@ function RadarChart({ points }: { points: RadarPoint[] }) {
         y={y + 4}
         textAnchor={anchor}
         fontSize="10"
-        fill="rgba(203,213,225,0.8)"
+        fill={theme === "light" ? "rgba(51,65,85,0.8)" : "rgba(203,213,225,0.8)"}
         fontFamily="inherit"
       >
         {p.label}
@@ -117,23 +129,27 @@ function CircularProgress({
   ratingColor,
   trackColor,
   progressColor,
+  theme,
 }: {
   label: string;
   value: number;
   rating: string;
   ratingColor: string;
   trackColor: string;
-  progressColor: string; // e.g. "#34d399" or a css linear-gradient id
+  progressColor: string;
+  theme: string;
 }) {
   const R = 34;
   const circ = 2 * Math.PI * R;
   const dash = (value / 100) * circ;
+  const isLight = theme === "light";
 
   return (
     <div
+      className={isLight ? "bg-white border border-gray-200" : ""}
       style={{
-        background: "rgba(255,255,255,0.03)",
-        border: "1px solid rgba(255,255,255,0.07)",
+        background: isLight ? undefined : "rgba(255,255,255,0.03)",
+        border: isLight ? undefined : "1px solid rgba(255,255,255,0.07)",
         borderRadius: 16,
         padding: "18px 16px",
         display: "flex",
@@ -141,7 +157,7 @@ function CircularProgress({
         gap: 10,
       }}
     >
-      <span style={{ fontSize: 11, color: "rgba(148,163,184,0.7)", fontWeight: 500 }}>{label}</span>
+      <span style={{ fontSize: 11, color: isLight ? "rgba(71,85,105,0.7)" : "rgba(148,163,184,0.7)", fontWeight: 500 }}>{label}</span>
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
         <div style={{ position: "relative", width: 78, height: 78, flexShrink: 0 }}>
           <svg width="78" height="78" viewBox="0 0 78 78" style={{ transform: "rotate(-90deg)" }}>
@@ -166,7 +182,7 @@ function CircularProgress({
               justifyContent: "center",
               fontSize: 18,
               fontWeight: 800,
-              color: "#fff",
+              color: isLight ? "#1e293b" : "#fff",
             }}
           >
             {value}%
@@ -186,6 +202,8 @@ export default function Analytics() {
   const { user } = useOutletContext<{ user: User }>();
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const theme = useTheme();
+  const isLight = theme === "light";
 
   useEffect(() => {
     const fetchData = async () => {
@@ -300,11 +318,16 @@ export default function Analytics() {
 
   /* ── Card style ── */
   const card: React.CSSProperties = {
-    background: "rgba(18,12,38,0.85)",
-    border: "1px solid rgba(124,58,237,0.13)",
+    background: isLight ? "#ffffff" : "rgba(18,12,38,0.85)",
+    border: isLight ? "1px solid rgba(0,0,0,0.08)" : "1px solid rgba(124,58,237,0.13)",
     borderRadius: 18,
     padding: 24,
   };
+  const textPrimary = isLight ? "#1e293b" : "#fff";
+  const textSecondary = isLight ? "rgba(51,65,85,0.85)" : "rgba(203,213,225,0.85)";
+  const textMuted = isLight ? "rgba(71,85,105,0.6)" : "rgba(148,163,184,0.6)";
+  const textMutedA = isLight ? "rgba(71,85,105,0.7)" : "rgba(148,163,184,0.7)";
+  const dividerColor = isLight ? "rgba(0,0,0,0.06)" : "rgba(255,255,255,0.05)";
 
   return (
     <div
@@ -314,10 +337,10 @@ export default function Analytics() {
       {/* ── Header ── */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
-          <span style={{ fontSize: 11, color: "rgba(148,163,184,0.6)", textTransform: "uppercase", letterSpacing: 2, fontWeight: 600 }}>
+          <span style={{ fontSize: 11, color: textMuted, textTransform: "uppercase", letterSpacing: 2, fontWeight: 600 }}>
             Performance
           </span>
-          <h1 style={{ fontSize: 26, fontWeight: 800, color: "#fff", marginTop: 2 }}>
+          <h1 style={{ fontSize: 26, fontWeight: 800, color: textPrimary, marginTop: 2 }}>
             Feedback &amp; Recommendations
           </h1>
         </div>
@@ -340,7 +363,7 @@ export default function Analytics() {
 
       {/* ── Overall Performance ── */}
       <div style={card}>
-        <p style={{ fontSize: 13, fontWeight: 600, color: "rgba(203,213,225,0.85)", marginBottom: 16 }}>
+        <p style={{ fontSize: 13, fontWeight: 600, color: textSecondary, marginBottom: 16 }}>
           Overall Performance
         </p>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
@@ -348,33 +371,37 @@ export default function Analytics() {
             label="Summary Accuracy"
             value={hasData ? summaryAccuracy : 0}
             rating={rating(summaryAccuracy, !hasData)}
-            ratingColor={hasData ? ratingColor(summaryAccuracy) : "rgba(148,163,184,0.5)"}
+            ratingColor={hasData ? ratingColor(summaryAccuracy) : textMutedA}
             trackColor="rgba(52,211,153,0.12)"
             progressColor="#34d399"
+            theme={theme}
           />
           <CircularProgress
             label="Quiz Score"
             value={hasData ? avgScore : 0}
             rating={rating(avgScore, !hasData)}
-            ratingColor={hasData ? ratingColor(avgScore) : "rgba(148,163,184,0.5)"}
+            ratingColor={hasData ? ratingColor(avgScore) : textMutedA}
             trackColor="rgba(56,189,248,0.12)"
             progressColor="#38bdf8"
+            theme={theme}
           />
           <CircularProgress
             label="Flashcard Mastery"
             value={hasData ? flashcardMastery : 0}
             rating={rating(flashcardMastery, !hasData)}
-            ratingColor={hasData ? ratingColor(flashcardMastery) : "rgba(148,163,184,0.5)"}
+            ratingColor={hasData ? ratingColor(flashcardMastery) : textMutedA}
             trackColor="rgba(168,85,247,0.12)"
             progressColor="#a855f7"
+            theme={theme}
           />
           <CircularProgress
             label="Consistency"
             value={hasData ? consistency : 0}
             rating={rating(consistency, !hasData)}
-            ratingColor={hasData ? ratingColor(consistency) : "rgba(148,163,184,0.5)"}
+            ratingColor={hasData ? ratingColor(consistency) : textMutedA}
             trackColor="rgba(251,191,36,0.12)"
             progressColor="#fbbf24"
+            theme={theme}
           />
         </div>
       </div>
@@ -393,8 +420,8 @@ export default function Analytics() {
           }}
         >
           <span style={{ fontSize: 40, marginBottom: 12 }}>📊</span>
-          <p style={{ color: "rgba(203,213,225,0.85)", fontWeight: 600, marginBottom: 6 }}>No quiz data yet</p>
-          <p style={{ color: "rgba(148,163,184,0.6)", fontSize: 13, marginBottom: 20 }}>
+          <p style={{ color: textSecondary, fontWeight: 600, marginBottom: 6 }}>No quiz data yet</p>
+          <p style={{ color: textMuted, fontSize: 13, marginBottom: 20 }}>
             Upload a document and take a quiz to see your analytics!
           </p>
           <Link
@@ -416,25 +443,25 @@ export default function Analytics() {
               style={{
                 fontSize: 13,
                 fontWeight: 600,
-                color: "rgba(203,213,225,0.85)",
+                color: textSecondary,
                 alignSelf: "flex-start",
                 marginBottom: 16,
               }}
             >
               Skills Radar
             </p>
-            <RadarChart points={radarPoints} />
+            <RadarChart points={radarPoints} theme={theme} />
           </div>
 
           {/* Right column: Weak Areas + Recommendations */}
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {/* Weak Areas */}
             <div style={{ ...card, flex: 1 }}>
-              <p style={{ fontSize: 13, fontWeight: 600, color: "rgba(203,213,225,0.85)", marginBottom: 14 }}>
+              <p style={{ fontSize: 13, fontWeight: 600, color: textSecondary, marginBottom: 14 }}>
                 Weak Areas
               </p>
               {weakAreas.length === 0 ? (
-                <p style={{ fontSize: 12, color: "rgba(148,163,184,0.6)" }}>
+                <p style={{ fontSize: 12, color: textMuted }}>
                   No weak areas identified. Take more quizzes for insights.
                 </p>
               ) : (
@@ -446,7 +473,7 @@ export default function Analytics() {
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "space-between",
-                        borderBottom: "1px solid rgba(255,255,255,0.05)",
+                        borderBottom: `1px solid ${dividerColor}`,
                         paddingBottom: 10,
                       }}
                     >
@@ -461,7 +488,7 @@ export default function Analytics() {
                             boxShadow: `0 0 6px ${area.dotColor}88`,
                           }}
                         />
-                        <span style={{ fontSize: 13, color: "rgba(203,213,225,0.9)", fontWeight: 500 }}>
+                        <span style={{ fontSize: 13, color: isLight ? "rgba(30,41,59,0.9)" : "rgba(203,213,225,0.9)", fontWeight: 500 }}>
                           {area.name}
                         </span>
                       </div>
@@ -486,11 +513,11 @@ export default function Analytics() {
 
             {/* Recommendations */}
             <div style={{ ...card, flex: 1 }}>
-              <p style={{ fontSize: 13, fontWeight: 600, color: "rgba(203,213,225,0.85)", marginBottom: 14 }}>
+              <p style={{ fontSize: 13, fontWeight: 600, color: textSecondary, marginBottom: 14 }}>
                 Recommendations
               </p>
               {recommendations.length === 0 ? (
-                <p style={{ fontSize: 12, color: "rgba(148,163,184,0.6)" }}>
+                <p style={{ fontSize: 12, color: textMuted }}>
                   Take a quiz to get personalized recommendations.
                 </p>
               ) : (
@@ -502,14 +529,14 @@ export default function Analytics() {
                         display: "flex",
                         alignItems: "center",
                         gap: 12,
-                        background: "rgba(255,255,255,0.025)",
-                        border: "1px solid rgba(255,255,255,0.06)",
+                        background: isLight ? "rgba(0,0,0,0.03)" : "rgba(255,255,255,0.025)",
+                        border: isLight ? "1px solid rgba(0,0,0,0.06)" : "1px solid rgba(255,255,255,0.06)",
                         borderRadius: 10,
                         padding: "10px 14px",
                       }}
                     >
                       <span style={{ fontSize: 16, flexShrink: 0 }}>{recIcons[i] ?? "💡"}</span>
-                      <span style={{ fontSize: 12, color: "rgba(203,213,225,0.85)", lineHeight: 1.4 }}>{rec}</span>
+                      <span style={{ fontSize: 12, color: textSecondary, lineHeight: 1.4 }}>{rec}</span>
                     </div>
                   ))}
                 </div>

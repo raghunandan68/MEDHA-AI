@@ -1,5 +1,6 @@
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext";
+import { useState } from "react";
 import type { User } from "../types";
 
 interface NavbarProps {
@@ -10,10 +11,12 @@ export default function Navbar({ user }: NavbarProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { logout } = useAuth();
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const isHome = location.pathname === "/";
   const isAuthPage = location.pathname === "/login" || location.pathname === "/register" || location.pathname === "/auth/callback";
 
   const handleLogout = async () => {
+    setShowLogoutModal(false);
     await logout();
     navigate("/");
   };
@@ -50,7 +53,7 @@ export default function Navbar({ user }: NavbarProps) {
                   {user.name || user.email}
                 </span>
                 <button
-                  onClick={handleLogout}
+                  onClick={() => setShowLogoutModal(true)}
                   className="rounded-lg border border-slate-700/50 bg-slate-800/50 px-3 py-1.5 text-sm font-medium text-slate-400 transition-all duration-200 hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-300 active:scale-95"
                 >
                   Logout
@@ -84,6 +87,29 @@ export default function Navbar({ user }: NavbarProps) {
           </div>
         )}
       </div>
+
+      {showLogoutModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60" onClick={() => setShowLogoutModal(false)}>
+          <div className="bg-medha-card border border-violet-500/20 rounded-2xl p-6 w-full max-w-sm shadow-2xl mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-semibold text-white mb-2">Confirm Logout</h3>
+            <p className="text-sm text-slate-400 mb-6">Are you sure you want to logout?</p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowLogoutModal(false)}
+                className="px-4 py-2 rounded-xl text-sm font-medium text-slate-300 border border-white/10 hover:bg-white/5 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleLogout}
+                className="px-4 py-2 rounded-xl text-sm font-medium text-white bg-red-500 hover:bg-red-600 transition-all"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </nav>
   );
 }
