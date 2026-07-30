@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { useAuth } from "../lib/AuthContext";
 import { supabase } from "../lib/supabase";
+
+const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
 export default function Login() {
   const navigate = useNavigate();
-  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -37,9 +37,38 @@ export default function Login() {
     e.preventDefault();
     setLoading(true);
     setError("");
-    const err = await login(email, password);
-    if (err) { setError(err); setLoading(false); return; }
-    navigate("/dashboard", { replace: true });
+
+    try {
+      const res = await fetch(`${API_URL}/api/auth/signin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        const msg = data?.detail || "Invalid login credentials. Please check your email and password.";
+        setError(msg);
+        setLoading(false);
+        return;
+      }
+
+      if (data?.access_token) {
+        localStorage.setItem("medha_auth_token", data.access_token);
+        localStorage.setItem("medha_user", JSON.stringify({
+          id: data.user_id,
+          email: data.email,
+          name: data.name,
+          created_at: new Date().toISOString(),
+        }));
+      }
+
+      navigate("/dashboard", { replace: true });
+    } catch (err) {
+      setError("Unable to connect to server. Please try again later.");
+      setLoading(false);
+    }
   };
 
   return (

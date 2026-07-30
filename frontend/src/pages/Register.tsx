@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { useAuth } from "../lib/AuthContext";
 import { supabase } from "../lib/supabase";
+
+const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
 export default function Register() {
   const navigate = useNavigate();
-  const { register } = useAuth();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -76,6 +76,7 @@ export default function Register() {
     e.preventDefault();
     setLoading(true);
     setError("");
+    setSuccess("");
     
     if (password !== confirmPassword) {
       setError("Passwords do not match");
@@ -89,10 +90,29 @@ export default function Register() {
       return;
     }
     
-    const err = await register(name, email, password, confirmPassword);
-    if (err) { setError(err); setLoading(false); return; }
-    setSuccess("Account created successfully! Please login.");
-    setTimeout(() => navigate("/login"), 2000);
+    try {
+      const res = await fetch(`${API_URL}/api/auth/signup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password, confirm_password: confirmPassword }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        const msg = data?.detail || "Registration failed. Please try again.";
+        setError(msg);
+        setLoading(false);
+        return;
+      }
+
+      setSuccess("Account created successfully! Please login.");
+      setLoading(false);
+      setTimeout(() => navigate("/login"), 2000);
+    } catch (err) {
+      setError("Unable to connect to server. Please try again later.");
+      setLoading(false);
+    }
   };
 
   return (
