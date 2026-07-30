@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { useAuth } from "../lib/AuthContext";
+
+const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
-  const { forgotPassword } = useAuth();
   const [email, setEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -32,24 +32,23 @@ export default function ForgotPassword() {
     }
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/verify-email`, {
+      const response = await fetch(`${API_URL}/api/auth/verify-email`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
 
       if (!response.ok) {
-        setError("Invalid email please register first");
+        const data = await response.json().catch(() => null);
+        setError(data?.detail || "Invalid email. Please register first.");
         setLoading(false);
         return;
       }
 
       setStep(2);
       setLoading(false);
-    } catch (error) {
-      setError("Invalid email please register first");
+    } catch {
+      setError("Unable to connect to server. Please try again later.");
       setLoading(false);
     }
   };
@@ -72,12 +71,28 @@ export default function ForgotPassword() {
       return;
     }
 
-    const err = await forgotPassword(email, newPassword, confirmPassword);
-    if (err) {
-      setError(err);
-    } else {
-      setSuccess("Password has been reset successfully! Please login with your new password.");
+    try {
+      const response = await fetch(`${API_URL}/api/auth/forgot-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, new_password: newPassword, confirm_password: confirmPassword }),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        const msg = data?.detail || "Failed to reset password. Please try again.";
+        setError(msg);
+        setLoading(false);
+        return;
+      }
+
+      setSuccess("Password reset successful! Please login with your new password.");
+      setLoading(false);
       setTimeout(() => navigate("/login"), 3000);
+    } catch {
+      setError("Unable to connect to server. Please try again later.");
+      setLoading(false);
     }
   };
 
