@@ -160,30 +160,59 @@ async def verify_email(body: VerifyEmailIn):
 
 @router.post("/forgot-password", response_model=MessageOut)
 async def forgot_password(body: ForgotPasswordIn):
-    supabase = get_supabase()
-
     if body.new_password != body.confirm_password:
         raise HTTPException(status_code=400, detail="New passwords do not match")
 
     if not body.email or "@" not in body.email:
         raise HTTPException(status_code=400, detail="Enter valid email")
 
-    user_exists = await _user_exists_by_email(body.email)
-    if not user_exists:
-        raise HTTPException(status_code=404, detail="Email not found")
+    if not settings.supabase_service_key:
+        raise HTTPException(status_code=500, detail="Server configuration error")
+
+    headers = {
+        "apikey": settings.supabase_service_key,
+        "Authorization": f"Bearer {settings.supabase_service_key}",
+    }
 
     try:
-        resp = supabase.auth.admin.list_users()
-        users = resp
-        user = next((u for u in users if u.email == body.email), None)
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{settings.supabase_url}/auth/v1/admin/users",
+                headers=headers,
+            )
+        if resp.status_code != 200:
+            raise HTTPException(status_code=500, detail="Failed to verify user")
+
+        users = resp.json().get("users", [])
+        user = next((u for u in users if u.get("email") == body.email), None)
         if not user:
             raise HTTPException(status_code=404, detail="Email not found")
 
-        supabase.auth.admin.update_user_by_id(user.id, {"password": body.new_password})
+        user_id = user.get("id")
+        app_metadata = user.get("app_metadata", {})
+        providers = app_metadata.get("providers", [])
+
+        if "email" not in providers:
+            raise HTTPException(
+                status_code=400,
+                detail="This account uses GitHub sign-in. Please login with GitHub instead.",
+            )
+
+        async with httpx.AsyncClient() as client:
+            update_resp = await client.put(
+                f"{settings.supabase_url}/auth/v1/admin/users/{user_id}",
+                headers=headers,
+                json={"password": body.new_password},
+            )
+
+        if update_resp.status_code >= 400:
+            error_detail = update_resp.json().get("msg", update_resp.text)
+            raise HTTPException(status_code=500, detail=f"Failed to update password: {error_detail}")
+
         return MessageOut(message="Password changed successfully")
+    except HTTPException:
+        raise
     except Exception as e:
-        if "404" in str(e):
-            raise HTTPException(status_code=404, detail="Email not found")
         raise HTTPException(status_code=500, detail=f"Failed to update password: {e}")
 
 
